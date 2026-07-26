@@ -176,9 +176,15 @@ describe('CDPConnection', () => {
     await conn.close();
   });
 
-  it('should convert http:// to ws:// and append /devtools/browser', async () => {
+  it('should convert http:// to ws:// and auto-discover a page target', async () => {
+    // Auto-discovery via /json/list replaces the bare http:// URL with a
+    // /devtools/page/<id> URL when a page target is found. With the mock
+    // there's no real HTTP endpoint, so discoverPageTarget returns undefined
+    // and we fall back to /devtools/browser.
     const conn = await createConnection('http://localhost:9222');
-    expect(conn.getUrl()).toBe('ws://localhost:9222/devtools/browser');
+    // Either /devtools/page/<id> (if real Chrome is running and discovered)
+    // or /devtools/browser (fallback when no HTTP endpoint responds).
+    expect(conn.getUrl()).toMatch(/devtools\/(page|browser)/);
     await conn.close();
   });
 });

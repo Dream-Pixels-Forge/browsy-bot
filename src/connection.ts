@@ -236,7 +236,20 @@ export async function evaluate(
 ): Promise<any> {
   const conn = await createConnection(browserUrl, targetId);
   try {
-    return await conn.send('Runtime.evaluate', { expression, returnByValue: true });
+    const result = await conn.send<{ result?: any; exceptionDetails?: any }>(
+      'Runtime.evaluate',
+      { expression, returnByValue: true },
+    );
+    // CDP returns exceptionDetails (not error) when the JS expression throws.
+    if (result?.exceptionDetails) {
+      const details = result.exceptionDetails;
+      const msg = details.text ?? details.exception?.description ?? 'Evaluation error';
+      throw Object.assign(new Error(String(msg)), {
+        code: -32000,
+        details,
+      });
+    }
+    return result;
   } finally {
     await conn.close();
   }
