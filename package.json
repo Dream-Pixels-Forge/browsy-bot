@@ -1,0 +1,60 @@
+{
+  "name": "browsy-plugin",
+  "version": "0.1.0",
+  "description": "Raw CDP browser automation plugin for OpenCode",
+  "type": "module",
+  "main": "dist/plugin.js",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js",
+      "require": "./dist/index.js"
+    },
+    "./plugin": {
+      "types": "./dist/plugin.d.ts",
+      "import": "./dist/plugin.js"
+    }
+  },
+  "types": "dist/index.d.ts",
+  "bin": {
+    "browsy": "dist/cli.js"
+  },
+  "scripts": {
+    "dev": "tsx src/example.ts",
+    "build": "tsc",
+    "compile": "tsc",
+    "clean": "rimraf dist",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
+    "example": "tsx src/example.ts",
+    "cli": "tsx src/cli.ts --help",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@opencode-ai/plugin": "^1.18.5",
+    "commander": "^12.1.0",
+    "dotenv": "^16.4.5",
+    "ws": "^8.17.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.14.0",
+    "@types/ws": "^8.5.10",
+    "rimraf": "^5.0.0",
+    "tsx": "^4.19.0",
+    "typescript": "^5.5.0",
+    "vitest": "^4.1.10"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "browsy",
+    "cdp",
+    "chrome devtools",
+    "browser automation",
+    "opencode",
+    "agent"
+  ],
+  "license": "MIT"
+}
