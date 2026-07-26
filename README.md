@@ -1,58 +1,73 @@
-# browsy - Raw CDP Browser Automation Plugin for OpenCode
+# browsy - Zero-Middleware CDP Browser Automation for OpenCode
 
-Zero‑middleware, zero‑hidden‑state browser automation using the Chrome DevTools Protocol (CDP), with [memorius](https://github.com/Dream-Pixels-Forge/memorius)-powered learning across sessions.
+Navigate, screenshot, and evaluate page JS in live Chrome/Chromium tabs via the Chrome DevTools Protocol — no Puppeteer, no Playwright, no drivers. Auto-discovers page targets and learns selectors, quirks, and flows across sessions via [memorius](https://github.com/Dream-Pixels-Forge/memorius).
 
-> **OpenCode plugin** — ships an [opencode plugin](https://opencode.ai/docs/plugins/) entry point that registers `browsy_*` custom tools and an [agent skill](https://opencode.ai/docs/skills/). See [Usage as an OpenCode plugin](#usage-as-an-opencode-plugin).
+> **OpenCode plugin** — ships an [opencode plugin](https://opencode.ai/docs/plugins/) entry point that registers `browsy_*` custom tools and an [agent skill](https://opencode.ai/docs/skills/). See [Install as an OpenCode plugin](#install-as-an-opencode-plugin).
 
 ## Features
 
-- **Zero middleware** – No ChromeDriver, Puppeteer, or Playwright. Direct CDP connection.
+- **Zero middleware** – No ChromeDriver, Puppeteer, or Playwright. Direct CDP WebSocket.
 - **Zero hidden state** – Every call receives an explicit `browserUrl` (and optional `targetId`).
-- **Granular targeting** – Operate on specific tabs/windows via `targetId`.
+- **Granular targeting** – Operate on specific tabs/windows via `targetId`, or auto-discover the first page target.
 - **Protocol‑complete** – Full CDP domain wrappers (Page, Runtime, Performance, Accessibility).
 - **OpenCode‑ready** – Plugin entry point with `browsy_navigate`, `browsy_screenshot`, `browsy_evaluate`, and `browsy_recall` custom tools.
 - **Learns across sessions** – Optional memorius integration stores browser-automation learnings (selectors, page quirks, navigation flows) and surfaces them before future tasks.
 - **Agent skill** – Bundled `browsy` skill auto-installs to `~/.config/opencode/skills/browsy/` so opencode's `skill` tool can discover it.
 
-## Installation
+## Install as an OpenCode plugin
+
+OpenCode auto-loads plugins from your config's `"plugin"` array at startup using Bun. There are three install paths:
+
+### Path 1 — From npm (once published)
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": ["browsy-plugin"]
+}
+```
+
+OpenCode runs `bun install` at startup and caches the package in `~/.cache/opencode/node_modules/`. The `main` field points to `src/plugin.ts` which Bun executes as TypeScript directly — **no build step required**.
+
+### Path 2 — From GitHub (works now)
+
+Bun resolves git specs, so you can install directly from GitHub before an npm publish:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "plugin": ["github:Dream-Pixels-Forge/browsy-plugin"]
+}
+```
+
+### Path 3 — Local plugin directory
+
+Clone the repo into your plugins folder and OpenCode auto-loads it on startup:
 
 ```bash
-npm install browsy-plugin
-# or
-yarn add browsy-plugin
+# Global (all projects)
+git clone https://github.com/Dream-Pixels-Forge/browsy-plugin.git \
+  ~/.config/opencode/plugins/browsy-plugin
+
+# Or project-level
+git clone https://github.com/Dream-Pixels-Forge/browsy-plugin.git \
+  .opencode/plugins/browsy-plugin
 ```
 
-## Quick Start
+Local plugins are loaded directly — the dependencies in `package.json` are installed automatically by OpenCode at startup via `bun install`.
 
-```ts
-import { createBrowsy } from "browsy-plugin";
+### Passing options
 
-// Create a Browsy instance
-const browsy = createBrowsy("ws://localhost:9222");
-
-await browsy.connect(); // Connect to Chrome DevTools Protocol
-try {
-  // Domains are available after connect() (they throw otherwise).
-  await browsy.page.navigate({ url: "https://example.com" });
-  const screenshot = await browsy.page.captureScreenshot({ format: "png" });
-  const title = await browsy.runtime.evaluate({ expression: "document.title" });
-} finally {
-  await browsy.close(); // Always clean up
-}
-}
-```
-
-## Usage as an OpenCode plugin
-
-Add the package to your opencode config. You can pass options as a tuple entry:
-
-opencode.json
+All three paths accept plugin options as a `[name, options]` tuple:
 
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
   "plugin": [
-    ["browsy-plugin", { "url": "ws://localhost:9222", "remember": true }]
+    ["github:Dream-Pixels-Forge/browsy-plugin", {
+      "url": "ws://localhost:9222",
+      "remember": true
+    }]
   ]
 }
 ```
@@ -68,26 +83,37 @@ Options:
 | `memoriusShelf`  | —                  | `browsy`              | Memorius shelf for browsy learnings.                               |
 | `installSkill`   | —                  | `true`                | Auto-install the bundled `browsy` skill to the user's skills dir.  |
 
+### Prerequisites
+
+Launch Chrome with remote debugging before calling browsy tools:
+
+```bash
+chromium --remote-debugging-port=9222 --headless --no-sandbox
+```
+
+The default endpoint is `ws://localhost:9222`. Override with the plugin's `"url"` option or the `BROWSY_URL` environment variable.
+
+### Registered tools
+
 Once loaded, the agent has access to these custom tools:
 
 | Tool                | Description                                                              |
 | ------------------- | ------------------------------------------------------------------------ |
 | `browsy_navigate`   | Navigate a CDP-connected tab to a URL.                                    |
-| `browsy_screenshot`  | Capture a screenshot; returns base64 PNG or writes to `outputPath`.      |
+| `browsy_screenshot` | Capture a screenshot; returns base64 PNG or writes to `outputPath`.      |
 | `browsy_evaluate`   | Evaluate a JavaScript expression in the page context.                    |
-| `browsy_recall`     | Search past browser-automation learnings from the memorius vault.         |
+| `browsy_recall`     | Search past browser-automation learnings from the memorius vault.        |
 
 ### Memorius learning
 
-When `remember` is enabled, every successful `browsy_*` tool call stores a
-compact learning to memorius (via its CLI) under the configured shelf. The
-plugin also hooks `tool.execute.after` so learnings are captured even for
-calls the agent makes directly. Use the `browsy_recall` tool before a browser
-task to surface relevant past learnings.
+When `"remember": true` (or `BROWSY_REMEMBER=1`), every successful `browsy_*`
+tool call stores a compact learning to memorius under the `"browsy"` shelf.
+Use the `browsy_recall` tool before a browser task to surface relevant past
+learnings (selectors that worked, page-specific quirks, navigation flows).
 
-Memorius is optional: if the `memorius` CLI is not installed, browsy works
-normally and recall returns an empty result. To enable native memorius agent
-tools as well, add memorius as an [MCP server](https://opencode.ai/docs/mcp-servers/):
+Memorius is **optional** — if the `memorius` CLI is not installed, browsy
+works normally and `browsy_recall` returns an empty result. To enable native
+memorius agent tools as well, add it as an [MCP server](https://opencode.ai/docs/mcp-servers/):
 
 ```json
 {
@@ -104,13 +130,24 @@ init, it is copied to `~/.config/opencode/skills/browsy/SKILL.md` so
 opencode's `skill` tool can discover and load it. Disable this with
 `"installSkill": false`.
 
-Launch Chrome with remote debugging before using the tools:
+## API (standalone library)
 
-```bash
-chromium --remote-debugging-port=9222 --headless --no-sandbox
+```ts
+import { createBrowsy } from "browsy-plugin";
+
+// Create a Browsy instance
+const browsy = createBrowsy("ws://localhost:9222");
+
+await browsy.connect(); // Connect to Chrome DevTools Protocol
+try {
+  // Domains are available after connect() (they throw otherwise).
+  await browsy.page.navigate({ url: "https://example.com" });
+  const screenshot = await browsy.page.captureScreenshot({ format: "png" });
+  const title = await browsy.runtime.evaluate({ expression: "document.title" });
+} finally {
+  await browsy.close(); // Always clean up
+}
 ```
-
-## API
 
 ### `createBrowsy(browserUrl: string, targetId?: string): Browsy`
 

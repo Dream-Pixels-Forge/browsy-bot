@@ -1,23 +1,22 @@
 {
   "name": "browsy-plugin",
   "version": "0.1.0",
-  "description": "Raw CDP browser automation plugin for OpenCode",
+  "description": "Zero-middleware Chrome DevTools Protocol plugin for OpenCode. Navigate, screenshot, and evaluate page JS in live tabs with memorius-powered learning.",
   "type": "module",
-  "main": "dist/plugin.js",
+  "main": "src/plugin.ts",
   "exports": {
     ".": {
-      "types": "./dist/index.d.ts",
-      "import": "./dist/index.js",
-      "require": "./dist/index.js"
+      "types": "./src/index.ts",
+      "import": "./src/index.ts"
     },
     "./plugin": {
-      "types": "./dist/plugin.d.ts",
-      "import": "./dist/plugin.js"
+      "types": "./src/plugin.ts",
+      "import": "./src/plugin.ts"
     }
   },
-  "types": "dist/index.d.ts",
+  "types": "src/index.ts",
   "bin": {
-    "browsy": "dist/cli.js"
+    "browsy": "src/cli.ts"
   },
   "scripts": {
     "dev": "tsx src/example.ts",
@@ -54,7 +53,9 @@
     "chrome devtools",
     "browser automation",
     "opencode",
-    "agent"
+    "opencode-plugin",
+    "agent",
+    "memorius"
   ],
   "license": "MIT"
 }
