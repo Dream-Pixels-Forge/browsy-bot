@@ -1,8 +1,18 @@
-# browsy - Zero-Middleware CDP Browser Automation for OpenCode
+<div align="center">
+  <img src="assets/banner.png" alt="browsy" width="640" />
+  <h1>browsy</h1>
+  <p><strong>Zero-Middleware CDP Browser Automation for OpenCode</strong></p>
+  <p>Navigate, screenshot, and evaluate page JS in live Chrome/Chromium tabs via the Chrome DevTools Protocol — no Puppeteer, no Playwright, no drivers. Auto-discovers page targets and learns selectors, quirks, and flows across sessions via <a href="https://github.com/Dream-Pixels-Forge/memorius">memorius</a>.</p>
+  <p>
+    <a href="https://github.com/Dream-Pixels-Forge/browsy-plugin">Standalone repo</a> ·
+    <a href="https://opencode.ai/docs/plugins/">Plugin docs</a> ·
+    <a href="https://opencode.ai/docs/skills/">Skill docs</a> ·
+    <a href="#install-as-an-opencode-plugin">Install</a>
+  </p>
+  <hr />
+</div>
 
-Navigate, screenshot, and evaluate page JS in live Chrome/Chromium tabs via the Chrome DevTools Protocol — no Puppeteer, no Playwright, no drivers. Auto-discovers page targets and learns selectors, quirks, and flows across sessions via [memorius](https://github.com/Dream-Pixels-Forge/memorius).
-
-> **OpenCode plugin** — ships an [opencode plugin](https://opencode.ai/docs/plugins/) entry point that registers `browsy_*` custom tools and an [agent skill](https://opencode.ai/docs/skills/). See [Install as an OpenCode plugin](#install-as-an-opencode-plugin).
+> **OpenCode plugin** — registers `browsy_*` custom tools and an [agent skill](https://opencode.ai/docs/skills/). See [Install as an OpenCode plugin](#install-as-an-opencode-plugin).
 
 ## Features
 
