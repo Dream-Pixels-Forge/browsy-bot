@@ -62,7 +62,15 @@ export class Browsy {
   }
 
   async reconnect(): Promise<void> {
-    await this.connection?.reconnect();
+    if (this.connection) {
+      await this.connection.reconnect();
+    } else {
+      this.connection = await createConnection(this.browserUrl, this.targetId);
+      this._page = new PageDomain(this.connection);
+      this._runtime = new RuntimeDomain(this.connection);
+      this._performance = new PerformanceDomain(this.connection);
+      this._accessibility = new AccessibilityDomain(this.connection);
+    }
   }
 
   private requireConnected(): void {

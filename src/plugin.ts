@@ -99,8 +99,9 @@ they are available: \`memorius_search\`, \`memorius_store\`.
   targetId or let the convenience helpers open /devtools/page/<id>.
 - Screenshots return base64 PNG. Pass "outputPath" to write to a file
   relative to the project directory instead.
-- For evaluate, returnByValue is enabled so the result comes back as JSON.
-`;
+ - For evaluate, returnByValue is enabled so primitives come back directly.
+   Objects are JSON-stringified; null and undefined are returned as strings.
+ `;
 
 function resolveSkillDir(): string {
   if (process.env.BROWSY_SKILL_DIR) return process.env.BROWSY_SKILL_DIR;
@@ -109,7 +110,7 @@ function resolveSkillDir(): string {
     path.join(os.homedir(), '.config', 'opencode', 'agents', 'skills'),
   ];
   for (const dir of candidates) {
-    if (fs.existsSync(dir) || process.env.BROWSY_SKILL_DIR === dir) return dir;
+    if (fs.existsSync(dir)) return dir;
   }
   return path.join(os.homedir(), '.config', 'opencode', 'skills');
 }
@@ -180,7 +181,8 @@ export const BrowsyPlugin: Plugin = async (input, options) => {
         description:
           "Navigate a Chrome/Chromium tab connected via the Chrome DevTools " +
           "Protocol to the given URL. Requires Chrome launched with " +
-          "--remote-debugging-port=9222.",
+          "--remote-debugging-port=9222. Override the endpoint with the " +
+          "plugin's 'url' option or BROWSY_URL.",
         args: {
           url: tool.schema.string().describe("The URL to navigate to."),
           browserUrl: tool.schema

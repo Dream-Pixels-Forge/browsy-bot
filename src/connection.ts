@@ -291,8 +291,16 @@ export async function evaluate(
         details,
       });
     }
-    const value = result?.result?.value ?? result?.result?.description ?? null;
-    return value;
+    const remote = result?.result;
+    if (!remote) return null;
+    if (remote.unserializableValue !== undefined) {
+      const uv = remote.unserializableValue;
+      if (uv === 0) return -0;
+      if (uv === 1) return NaN;
+      if (uv === 2) return Infinity;
+      if (uv === 3) return -Infinity;
+    }
+    return remote.value ?? remote.description ?? null;
   } finally {
     await conn.close();
   }
