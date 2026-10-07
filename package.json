@@ -1,6 +1,6 @@
 {
   "name": "browsy-bot",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "description": "Zero-middleware Chrome DevTools Protocol browser automation. CDP core plus adapters: OpenCode plugin, MCP server, CLI. Navigate, screenshot, and evaluate page JS in live tabs with memorius-powered learning.",
   "type": "module",
   "main": "./dist/index.js",

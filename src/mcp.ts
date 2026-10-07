@@ -84,7 +84,7 @@ export interface BrowsyMcpOptions {
 export function createBrowsyServer(): McpServer {
   const server = new McpServer({
     name: "browsy",
-    version: "0.1.0",
+    version: "0.2.0",
   });
 
   server.registerTool(

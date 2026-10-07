@@ -98,13 +98,22 @@ Options:
 
 ### Prerequisites
 
-Launch Chrome with remote debugging before calling browsy tools:
+Get a CDP endpoint up on `ws://localhost:9222`. Two options:
+
+**Self-service (recommended)** — let browsy launch a dedicated headless
+browser for you (dedicated profile dir, never your logged-in one):
+
+```bash
+browsy ensure-browser     # starts Chrome on 9222 if nothing is listening
+```
+
+**Manual** — launch your own Chrome/Chromium with remote debugging:
 
 ```bash
 chromium --remote-debugging-port=9222 --headless --no-sandbox
 ```
 
-The default endpoint is `ws://localhost:9222`. Override with the plugin's `"url"` option or the `BROWSY_URL` environment variable.
+The default endpoint is `ws://localhost:9222`. Override with the plugin's `"url"` option or the `BROWSY_URL` environment variable. Use `browsy doctor` to check whether the endpoint, a browser binary, and memorius are all reachable before a task, and `browsy stop-browser` to shut down a browser `ensure-browser` started.
 
 ### Registered tools
 
@@ -290,7 +299,7 @@ Factory function to create a Browsy instance.
 
 ### Convenience Functions
 
-Three groups:
+Five groups:
 
 **One-shot CDP helpers** — each opens a throwaway connection:
 
@@ -332,8 +341,8 @@ await dropSession("ws://localhost:9222", "ABC123"); // or closeAllSessions()
 
 | Function | Signature | Returns |
 | -------- | --------- | ------- |
-| `click` | `(session, selector: string)` | `Promise<boolean>` — true if a match was clicked |
-| `fill` | `(session, selector: string, value: string)` | `Promise<boolean>` — true if a match was filled |
+| `click` | `(session, selector: string, options?: { trusted?: boolean })` | `Promise<boolean>` — true if a match was clicked. Pass `{ trusted: true }` to dispatch a renderer-trusted CDP mouse event (`Input.dispatchMouseEvent`) instead of JS dispatch. |
+| `fill` | `(session, selector: string, value: string, options?: { trusted?: boolean })` | `Promise<boolean>` — true if a match was filled. Pass `{ trusted: true }` to focus the control then type via `Input.insertText`. |
 | `waitForSelector` | `(session, selector: string, options?: { timeoutMs?: number; intervalMs?: number })` | `Promise<void>` |
 | `pageText` | `(session)` | `Promise<string>` — visible text |
 | `pageTitle` | `(session)` | `Promise<string>` |
@@ -347,6 +356,66 @@ await dropSession("ws://localhost:9222", "ABC123"); // or closeAllSessions()
 | `getSession` | `(browserUrl: string, options?: { targetId?: string; ... })` | `Promise<Session>` |
 | `dropSession` | `(browserUrl: string, targetId?: string)` | `void` |
 | `closeAllSessions` | `()` | `Promise<void>` |
+
+**Structured extraction** — pull typed records from matching elements in one
+in-page script (no bespoke `evaluate` boilerplate):
+
+```ts
+import { extract } from "browsy-bot";
+
+const cards = await extract(session, "article.card", [
+  "text",
+  "attr:src",
+  "value",
+], { limit: 50 });
+// -> Record<string, unknown>[] : one object per matched element
+```
+
+Field specs: `"text"` → `innerText`, `"html"` → `innerHTML`,
+`"textContent"` → trimmed `textContent`, `"value"` → `value`, or
+`"attr:<name>"` → `getAttribute(<name>)` (keyed by `<name>`).
+
+**Diagnostics** — `doctor` returns a structured `DoctorReport` (endpoint
+reachability + target/page count, binary discovery, memorius availability,
+actionable suggestions). All probes are injectable so unit tests run
+network-free. The individual probes are exported too:
+
+```ts
+import { doctor, probeVersion, findBrowserBinary, checkMemorius } from "browsy-bot";
+
+const report = await doctor("ws://localhost:9222");
+console.log(report.ready, report.suggestions);
+```
+
+| Function | Signature | Returns |
+| -------- | --------- | ------- |
+| `doctor` | `(browserUrl: string, options?: DoctorOptions)` | `Promise<DoctorReport>` |
+| `probeVersion` | `(browserUrl: string)` | `Promise<CDPBrowserInfo>` |
+| `findBrowserBinary` | `(explicit?: string)` | `string \| undefined` |
+| `checkMemorius` | `(shell?: (cmd) => Promise<{ ok: boolean; error?: string }>)` | `Promise<MemoriusProbe>` — default shell runs `memorius --version` |
+
+**Browser lifecycle** — start/stop a dedicated CDP browser. `ensureBrowser`
+probes the endpoint first and only launches (detached, dedicated
+`user-data-dir`, pidfile, `/json/version` poll) if it's down.
+`buildBrowserArgs` is pure/testable; the launched browser never touches your
+default logged-in profile:
+
+```ts
+import { ensureBrowser, stopBrowser } from "browsy-bot";
+
+const { browserUrl, handle } = await ensureBrowser({ port: 9222 });
+// ... drive the browser ...
+await stopBrowser({ port: 9222 }); // SIGTERMs the recorded pid
+```
+
+| Function | Signature | Returns |
+| -------- | --------- | ------- |
+| `ensureBrowser` | `(options?: BrowserOptions)` | `Promise<EnsuredBrowser>` — `{ launched, browserUrl, handle? }` |
+| `launchBrowser` | `(options?: BrowserOptions)` | `Promise<LaunchedBrowser>` |
+| `stopBrowser` | `(options?: BrowserOptions)` | `StoppedBrowser` — `{ stopped, pid?, reason? }` |
+| `buildBrowserArgs` | `(options?: BrowserOptions)` | `string[]` (pure) |
+| `resolveBrowserBinary` | `(options?: BrowserOptions)` | `string \| undefined` |
+| `waitForReady` | `(browserUrl, timeoutMs, intervalMs?)` | `Promise<void>` |
 
 ### URL resolution
 
@@ -447,7 +516,10 @@ Traditional browser automation layers (Selenium/WebDriver, Puppeteer, Playwright
 - **Performance Budgets** – Collect metrics via `Performance.getMetrics()` before allowing a merge.
 - **Documentation Generation** – Walk a wizard UI, capture screenshots per step, auto‑generate markdown guides.
 - **Accessibility Auditing** – Pull the full AXTree and verify ARIA roles, names, and states.
-- **Data Extraction** – Use `Runtime.evaluate` to pull structured data from rendered pages without fragile selectors.
+- **Data Extraction** – Use the first-class `extract` primitive to pull
+  typed records (text / html / value / `attr:<name>`) from matching
+  elements in one in-page script, or drop to raw `Runtime.evaluate`
+  for fully bespoke pulls.
 
 ## Security
 

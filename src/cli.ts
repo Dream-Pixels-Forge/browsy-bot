@@ -284,7 +284,7 @@ function buildProgram(): Command {
   program
     .name('browsy')
     .description('Raw CDP browser automation — universal CLI + MCP server')
-    .version('0.1.0')
+    .version('0.2.0')
     .option('-u, --url <url>', 'Chrome DevTools WebSocket URL', DEFAULT_BROWSER_URL())
     .option('-t, --target <id>', 'Default target/tab id', '')
     .option('-j, --json', 'Machine-readable JSON output', false);
