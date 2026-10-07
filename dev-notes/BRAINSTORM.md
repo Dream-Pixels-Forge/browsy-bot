@@ -137,4 +137,5 @@ demand. Memorius recall/remember stays opt-in and adapter-level.
 5. Portable skill — one SKILL.md, every tool.
 6. CI + npm publish + multi-tool README — distribution.
 7. Security notes: CDP endpoint = full machine-control of the browser;
-   document localhost-only default, `BROWSY_URL` risk.
+   document localhost-only default, `BROWSY_URL` risk. — DONE: README
+   "Security" section added 2026-10-07 (commit 18728a5).
