@@ -32,40 +32,40 @@ no emoji on landing pages):
 - Content reflects shipped v0.2.0 behavior only (no invented features).
 
 ### Deliverables
-- [ ] `docs/index.html` — the full landing page (hero, feature grid,
+- [x] `docs/index.html` — the full landing page (hero, feature grid,
       three-adapter section, Tier-1 feature section, quick-start code
       examples, security note, footer with license + repo link).
-- [ ] `docs/.nojekyll` — empty file to disable Jekyll processing.
-- [ ] `docs/assets/banner.png` — copy of the repo banner used in the hero
+- [x] `docs/.nojekyll` — empty file to disable Jekyll processing.
+- [x] `docs/assets/banner.png` — copy of the repo banner used in the hero
       (kept local so the deployed site is self-contained).
-- [ ] `docs/404.html` — minimal premium-styled 404 (links back to `/`).
-- [ ] `.github/workflows/pages.yml` — canonical GitHub Actions Pages
+- [x] `docs/404.html` — minimal premium-styled 404 (links back to `/`).
+- [x] `.github/workflows/pages.yml` — canonical GitHub Actions Pages
       deploy workflow (`actions/configure-pages@v5` with
       `enablement: true`, `actions/upload-pages-artifact@v3` with
       `path: docs`, `actions/deploy-pages@v4`; `concurrency: pages`
       with `cancel-in-progress: false`; trigger on push to `main`
       matching `docs/**` + the workflow file; `permissions:
       contents:read, pages:write, id-token:write`).
-- [ ] `README.md` — add a "Live site" link to
+- [x] `README.md` — add a "Live site" link to
       `https://dream-pixels-forge.github.io/browsy-bot/` near the top
       (below the banner/hero block).
 
 ### Definition of Done
-- [ ] All six deliverable files exist at their exact paths.
-- [ ] Local serve check passes: `cd docs && python3 -m http.server`
+- [x] All six deliverable files exist at their exact paths.
+- [x] Local serve check passes: `cd docs && python3 -m http.server`
       + `curl http://127.0.0.1:<port>/index.html` returns HTTP 200.
-- [ ] `docs/index.html` contains **zero emoji characters** and at least
+- [x] `docs/index.html` contains **zero emoji characters** and at least
       4 custom inline `<svg>` icons; has a `meta name="viewport"` tag.
-- [ ] `.github/workflows/pages.yml` parses as valid YAML
+- [x] `.github/workflows/pages.yml` parses as valid YAML
       (`python3 -c "import yaml,sys;yaml.safe_load(open('.github/workflows/pages.yml'))"`
       exit 0) and includes `enablement: true` + `path: docs`.
-- [ ] After push, `gh run list --workflow=pages.yml --limit 1` shows a
+- [x] After push, `gh run list --workflow=pages.yml --limit 1` shows a
       **successful** run.
-- [ ] `gh api repos/Dream-Pixels-Forge/browsy-bot/pages --jq .html_url`
+- [x] `gh api repos/Dream-Pixels-Forge/browsy-bot/pages --jq .html_url`
       returns `https://dream-pixels-forge.github.io/browsy-bot`.
-- [ ] `curl -s -o /dev/null -w "%{http_code}"
+- [x] `curl -s -o /dev/null -w "%{http_code}"
       https://dream-pixels-forge.github.io/browsy-bot/` returns 200.
-- [ ] README links the live site URL.
+- [x] README links the live site URL.
 
 ### Verification Steps
 1. **Local render** — `cd docs && python3 -m http.server 8913 &` then
@@ -103,3 +103,38 @@ no emoji on landing pages):
 ### Estimated Effort
 ~2–3h: design + build the page (1.5h), wire the workflow + README (0.5h),
 publish + live verification (0.5h).
+
+
+---
+
+## Goal Completion Check
+
+Goal: Browsy-bot modern premium GitHub Pages site in docs/
+Date: 2026-10-07
+Run: push commit 6a50fe1 → pages.yml run 37622066189 (re-run) → success
+
+Deliverables Check: all six files exist (docs/index.html, docs/.nojekyll,
+docs/assets/banner.png, docs/404.html, .github/workflows/pages.yml, README link)
+
+Definition of Done Check:
+- [x] Six deliverable files present — stat loop
+- [x] Local render HTTP 200 — python3 http.server; index/404/banner/.nojekyll all 200
+- [x] index.html zero emoji + >=4 SVG + viewport — authoritative byte-gate: CLEAN, 23 svg, 1 viewport
+- [x] pages.yml valid YAML + enablement:true + path:docs — PyYAML safe_load OK
+- [x] Workflow green — run 37622066189 completed/success
+- [x] Pages html_url confirmed via API; live root curl HTTP 200; hero tagline present
+- [x] README links the live site URL (1 occurrence)
+
+Anti-Drift Check: docs + one workflow + one README line only; src/, test/,
+package.json, ci.yml, release.yml untouched. No framework/bundler/CDN. No
+emoji (custom inline SVG). Content cross-checked against shipped v0.2.0 README.
+
+BLOCKER (reported, resolved): pages.yml "Create Pages site failed: Resource
+not accessible by integration" — the workflow token could not bootstrap Pages.
+Resolved by enabling Pages via owner token:
+  gh api -X POST repos/Dream-Pixels-Forge/browsy-bot/pages -f build_type=workflow
+then re-running the workflow (configure becomes a no-op; deploy succeeded).
+
+RESULT: COMPLETE
+Remaining work: none. Optional polish: custom domain; add live-site URL to the
+npm package homepage field once npm publish lands.
