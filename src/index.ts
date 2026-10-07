@@ -39,6 +39,9 @@ import { getSession, dropSession, closeAllSessions } from './core/session.js';
 // Re-export the one-shot convenience helpers + domain classes.
 export { navigate, captureScreenshot, evaluate, createConnection, CDPConnection };
 export { PageDomain, RuntimeDomain, PerformanceDomain, AccessibilityDomain, TargetDomain };
+// Public types the documented API surface depends on (session actions, tab info).
+export type { TabInfo, WaitForOptions } from './core/actions.js';
+export type { Session, SessionOptions } from './core/session.js';
 export { click, fill, waitForSelector, pageText, pageTitle, currentUrl, screenshot, fullPageScreenshot, navigatePage, listTabs, newTab, closeTab };
 export { getSession, dropSession, closeAllSessions };
 
