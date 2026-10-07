@@ -25,21 +25,7 @@
       --code-border: #16162a;
       --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
       --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
-    }
-    @media (prefers-color-scheme: light) {
-      :root {
-        --bg: #f6f5fa;
-        --bg-elev: #ffffff;
-        --bg-card: #ffffff;
-        --border: #ddd8ea;
-        --border-hi: #ccc4e0;
-        --fg: #1a1726;
-        --fg-dim: #5d5978;
-        --fg-mute: #8f8ba8;
-        --accent-glow: rgba(124, 58, 237, 0.06);
-        --code-bg: #efecf6;
-        --code-border: #ddd8ea;
-      }
+      color-scheme: dark;
     }
 
     * { box-sizing: border-box; }
@@ -115,15 +101,6 @@
     }
     .hero > * { position: relative; z-index: 1; }
 
-    .banner-frame {
-      display: inline-block; margin-bottom: 34px;
-      padding: 14px; border-radius: 18px;
-      background: var(--bg-card);
-      border: 1px solid var(--border-hi);
-      box-shadow: 0 24px 60px rgba(0,0,0,0.45), 0 0 0 1px rgba(124,58,237,0.06);
-    }
-    .banner-frame img { display: block; border-radius: 10px; max-width: 560px; width: 100%; }
-
     .badge {
       display: inline-flex; align-items: center; gap: 8px;
       padding: 6px 13px; border-radius: 100px; font-size: 12px; font-weight: 600;
@@ -133,6 +110,13 @@
       margin-bottom: 26px;
     }
     .badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); }
+    .hero-mark {
+      width: 64px; height: 64px; margin: 0 auto 22px; border-radius: 18px;
+      display: grid; place-items: center;
+      background: var(--accent-glow); border: 1px solid var(--border-hi);
+      color: var(--accent-hi); box-shadow: 0 12px 34px rgba(0,0,0,0.35);
+    }
+    .hero-mark svg { width: 32px; height: 32px; stroke: currentColor; stroke-width: 1.5; fill: none; }
     .hero h1 {
       font-size: clamp(40px, 6.5vw, 66px); line-height: 1.02; font-weight: 800;
       letter-spacing: -0.03em; margin: 0 0 20px; max-width: 15ch; margin-left: auto; margin-right: auto;
@@ -196,6 +180,7 @@
     /* ---- Feature grid ---- */
     .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
     .grid-2 { grid-template-columns: repeat(2, 1fr); }
+    .grid-3 { grid-template-columns: repeat(3, 1fr); }
     .feature {
       background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px;
       padding: 22px; transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
@@ -336,12 +321,12 @@
 
     /* ---- Responsive ---- */
     @media (max-width: 900px) {
-      .grid { grid-template-columns: repeat(2, 1fr); }
+      .grid, .grid-3 { grid-template-columns: repeat(2, 1fr); }
       .tier { grid-template-columns: 1fr; gap: 14px; }
       .quick { grid-template-columns: 1fr; gap: 28px; }
     }
     @media (max-width: 620px) {
-      .grid, .grid-2 { grid-template-columns: 1fr; }
+      .grid, .grid-2, .grid-3 { grid-template-columns: 1fr; }
       .nav-links { display: none; }
       .hero { padding-top: 60px; }
     }
@@ -382,10 +367,10 @@
     <section class="hero" style="padding-top: 60px;">
       <div class="hero-orb" aria-hidden="true"></div>
       <div class="wrap">
-        <div class="banner-frame fade-up">
-          <img src="assets/banner.png" alt="browsy-bot wordmark" width="2172" height="724" loading="eager" />
-        </div>
         <div class="badge fade-up"><span class="dot"></span> v0.2.0 · Zero-middleware CDP</div>
+        <div class="hero-mark fade-up" aria-hidden="true">
+          <svg viewBox="0 0 24 24"><path d="M4 6l8-4 8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10z"/><path d="M9 12l2.5 2.5L15.5 9"/></svg>
+        </div>
         <h1 class="fade-up">Browser automation,<br /><span class="accent">zero middleware.</span></h1>
         <p class="sub fade-up">
           <strong>browsy-bot</strong> talks directly to the Chrome DevTools Protocol — no Puppeteer, no Playwright, no ChromeDriver. One CDP core, three adapters: an <strong>OpenCode plugin</strong>, a universal <strong>MCP server</strong>, and a <strong>CLI</strong>. It even remembers selectors and flows across sessions.
@@ -450,7 +435,7 @@
         <span class="eyebrow">One core, three ways in</span>
         <h2 class="fade-up">Meet it through the tool you already use.</h2>
         <p class="lead fade-up">The same CDP client powers an OpenCode plugin, a universal MCP server, and a CLI. Pick your surface — the core is identical.</p>
-        <div class="grid grid-2" style="grid-template-columns: repeat(3, 1fr);">
+        <div class="grid grid-3">
           <div class="adapter delay-1">
             <span class="tag">8 tools</span>
             <div class="icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V7z"/></svg></div>

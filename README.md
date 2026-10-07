@@ -5,10 +5,7 @@
   <p>Navigate, screenshot, and evaluate page JS in live Chrome/Chromium tabs via the Chrome DevTools Protocol — no Puppeteer, no Playwright, no drivers. One CDP core, three adapters: an <a href="#install-as-an-opencode-plugin">OpenCode plugin</a>, a universal <a href="#use-with-other-tools">MCP server</a>, and a <a href="#use-with-other-tools">CLI</a>. Learns selectors, quirks, and flows across sessions via <a href="https://github.com/Dream-Pixels-Forge/memorius">memorius</a>.</p>
   <p>
     <a href="https://dream-pixels-forge.github.io/browsy-bot/"><strong>Live site</strong></a> ·
-    <a href="https://github.com/Dream-Pixels-Forge/browsy-bot">Standalone repo</a> ·
-    <a href="#use-with-other-tools">Use with other tools</a> ·
-    <a href="#install-as-an-opencode-plugin">OpenCode plugin</a> ·
-    <a href="#api-standalone-library">Library API</a>
+    <a href="https://github.com/Dream-Pixels-Forge/browsy-bot">GitHub</a>
   </p>
   <hr />
 </div>
