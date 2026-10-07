@@ -4,7 +4,7 @@
   <p><strong>Zero-Middleware CDP Browser Automation</strong></p>
   <p>Navigate, screenshot, and evaluate page JS in live Chrome/Chromium tabs via the Chrome DevTools Protocol — no Puppeteer, no Playwright, no drivers. One CDP core, three adapters: an <a href="#install-as-an-opencode-plugin">OpenCode plugin</a>, a universal <a href="#use-with-other-tools">MCP server</a>, and a <a href="#use-with-other-tools">CLI</a>. Learns selectors, quirks, and flows across sessions via <a href="https://github.com/Dream-Pixels-Forge/memorius">memorius</a>.</p>
   <p>
-    <a href="https://github.com/Dream-Pixels-Forge/browsy-plugin">Standalone repo</a> ·
+    <a href="https://github.com/Dream-Pixels-Forge/browsy-bot">Standalone repo</a> ·
     <a href="#use-with-other-tools">Use with other tools</a> ·
     <a href="#install-as-an-opencode-plugin">OpenCode plugin</a> ·
     <a href="#api-standalone-library">Library API</a>
@@ -46,7 +46,7 @@ Bun resolves git specs, so you can install directly from GitHub before an npm pu
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": ["github:Dream-Pixels-Forge/browsy-plugin"]
+  "plugin": ["github:Dream-Pixels-Forge/browsy-bot"]
 }
 ```
 
@@ -56,12 +56,12 @@ Clone the repo into your plugins folder and OpenCode auto-loads it on startup:
 
 ```bash
 # Global (all projects)
-git clone https://github.com/Dream-Pixels-Forge/browsy-plugin.git \
-  ~/.config/opencode/plugins/browsy-plugin
+git clone https://github.com/Dream-Pixels-Forge/browsy-bot.git \
+  ~/.config/opencode/plugins/browsy-bot
 
 # Or project-level
-git clone https://github.com/Dream-Pixels-Forge/browsy-plugin.git \
-  .opencode/plugins/browsy-plugin
+git clone https://github.com/Dream-Pixels-Forge/browsy-bot.git \
+  .opencode/plugins/browsy-bot
 ```
 
 Local plugins are loaded directly — the dependencies in `package.json` are installed automatically by OpenCode at startup via `bun install`.
@@ -74,7 +74,7 @@ All three paths accept plugin options as a `[name, options]` tuple:
 {
   "$schema": "https://opencode.ai/config.json",
   "plugin": [
-    ["github:Dream-Pixels-Forge/browsy-plugin", {
+    ["github:Dream-Pixels-Forge/browsy-bot", {
       "url": "ws://localhost:9222",
       "remember": true
     }]

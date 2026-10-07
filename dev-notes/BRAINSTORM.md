@@ -116,9 +116,9 @@ demand. Memorius recall/remember stays opt-in and adapter-level.
 2. **npm name: RESOLVED -> `browsy-bot`.** Confirmed free on
    npmjs.org (`browsy-bot` 404s; the bare `browsy` name is taken by an
    unrelated 0.0.2 package). The npm package is renamed
-   `browsy-plugin` -> `browsy-bot`. The GitHub repo + on-disk folder
-   stay `browsy-plugin` for now (a separate, optional follow-up if
-   the user wants the repo slug to match). The OpenCode `plugin` spec
+   `browsy-plugin` -> `browsy-bot`. The on-disk folder was renamed in
+   the same pass; the GitHub repo slug was renamed `browsy-plugin` ->
+   `browsy-bot` on 2026-10-07 (old slug redirects). The OpenCode `plugin` spec
    now references `browsy-bot` for the npm path; GitHub-spec install
    paths still point at the repo.
 3. **HTTP MCP mode**: ship stdio-only first (covers every known

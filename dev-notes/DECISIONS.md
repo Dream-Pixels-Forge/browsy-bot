@@ -13,8 +13,9 @@
 - **Impact:** `package.json` name/description updated, lockfile
   regenerated name, README npm-facing references updated. The on-disk
   folder was renamed `browsy-plugin` -> `browsy-bot` in the same pass.
-  The GitHub remote/repo slug still reads `browsy-plugin` (a separate,
-  optional rename the user can request via the GitHub UI / `git remote`).
-  OpenCode `plugin` config now uses `browsy-bot` for the npm install path;
-  GitHub-spec install paths still point at the repo.
+  The GitHub remote/repo slug was renamed `browsy-plugin` ->
+  `browsy-bot` on 2026-10-07 (via `gh repo rename`, old slug now
+  redirects); `git remote` and all in-repo references updated.
+  OpenCode `plugin` config now uses `browsy-bot` for both the npm and
+  GitHub-spec install paths.
 - **Decided by:** user (requested rename; availability verified).

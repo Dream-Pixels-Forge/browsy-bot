@@ -157,11 +157,11 @@ Definition of Done Check:
 Anti-Drift Check:
 [x] All work stayed within Objective (multi-tool kit + OpenCode backward-compat)
 [x] No unstated assumptions — package name `browsy-bot` was verified free on npm;
-      GitHub repo slug remains `browsy-plugin` (noted as follow-up)
+      GitHub repo slug since renamed `browsy-plugin` -> `browsy-bot` (2026-10-07)
 [x] No blockers — all verification gates green
 
 RESULT: COMPLETE
 
 Follow-up goal (filed separately, NOT bundled):
 - CI + GitHub release + npm publish of `browsy-bot`
-- Optional: rename GitHub repo slug `browsy-plugin` -> `browsy-bot`
+- Rename GitHub repo slug `browsy-plugin` -> `browsy-bot` (DONE 2026-10-07)

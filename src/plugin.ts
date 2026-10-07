@@ -167,7 +167,7 @@ export const BrowsyPlugin: Plugin = async (input, options) => {
   try {
     await input.client.app.log({
       body: {
-        service: "browsy-plugin",
+        service: "browsy-bot",
         level: "info",
         message: "Browsy plugin initialized",
         extra: { url: defaultUrl, remember: shouldRemember, vault, shelf },

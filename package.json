@@ -62,7 +62,7 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/Dream-Pixels-Forge/browsy-plugin.git"
+    "url": "git+https://github.com/Dream-Pixels-Forge/browsy-bot.git"
   },
   "publishConfig": {
     "access": "public"

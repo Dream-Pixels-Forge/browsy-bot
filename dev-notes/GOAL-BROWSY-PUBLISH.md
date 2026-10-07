@@ -113,4 +113,4 @@ once NPM_TOKEN is set in the repo's GitHub secrets)
 Remaining work (user action, not in-repo):
 - [ ] Add/refresh NPM_TOKEN in GitHub repo secrets, OR refresh ~/.npmrc
 - [ ] Push tag `v0.1.0` to trigger the release workflow
-- [ ] Optional: rename GitHub repo slug `browsy-plugin` -> `browsy-bot`
+- [x] Rename GitHub repo slug `browsy-plugin` -> `browsy-bot` (DONE 2026-10-07 via `gh repo rename`; remote + in-repo refs updated)
