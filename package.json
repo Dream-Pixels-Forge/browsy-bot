@@ -3,26 +3,33 @@
   "version": "0.1.0",
   "description": "Zero-middleware Chrome DevTools Protocol browser automation. CDP core plus adapters: OpenCode plugin, MCP server, CLI. Navigate, screenshot, and evaluate page JS in live tabs with memorius-powered learning.",
   "type": "module",
-  "main": "src/plugin.ts",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
   "exports": {
     ".": {
-      "types": "./src/index.ts",
-      "import": "./src/index.ts"
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
     },
     "./plugin": {
-      "types": "./src/plugin.ts",
-      "import": "./src/plugin.ts"
+      "types": "./dist/plugin.d.ts",
+      "default": "./dist/plugin.js"
     },
     "./mcp": {
-      "types": "./src/mcp.ts",
-      "import": "./src/mcp.ts"
-    }
+      "types": "./dist/mcp.d.ts",
+      "default": "./dist/mcp.js"
+    },
+    "./package.json": "./package.json"
   },
-  "types": "src/index.ts",
   "bin": {
-    "browsy": "src/cli.ts"
+    "browsy": "./dist/cli.js"
   },
+  "files": [
+    "dist",
+    "skills",
+    "README.md"
+  ],
   "scripts": {
+    "prepublishOnly": "npm run build",
     "dev": "tsx src/example.ts",
     "build": "tsc",
     "compile": "tsc",
@@ -52,6 +59,13 @@
   },
   "engines": {
     "node": ">=18"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Dream-Pixels-Forge/browsy-plugin.git"
+  },
+  "publishConfig": {
+    "access": "public"
   },
   "keywords": [
     "browsy",
