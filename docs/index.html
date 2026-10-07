@@ -1,0 +1,678 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>browsy-bot — Zero-middleware CDP browser automation</title>
+  <meta name="description" content="browsy-bot is a zero-middleware Chrome DevTools Protocol browser-automation kit: direct CDP, no Puppeteer or Playwright. One core, three adapters — OpenCode plugin, universal MCP server, and CLI. Learns selectors and flows across sessions." />
+  <meta name="theme-color" content="#06060c" />
+  <link rel="preconnect" href="https://github.com" crossorigin />
+  <style>
+    :root {
+      --bg: #06060c;
+      --bg-elev: #0c0c16;
+      --bg-card: #10101c;
+      --border: #1a1a2e;
+      --border-hi: #282840;
+      --fg: #e8e6f2;
+      --fg-dim: #8a86a4;
+      --fg-mute: #565274;
+      --accent: #7c3aed;
+      --accent-hi: #a78bfa;
+      --accent-glow: rgba(124, 58, 237, 0.12);
+      --green: #34d399;
+      --code-bg: #0a0a14;
+      --code-border: #16162a;
+      --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans", sans-serif;
+      --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+    }
+    @media (prefers-color-scheme: light) {
+      :root {
+        --bg: #f6f5fa;
+        --bg-elev: #ffffff;
+        --bg-card: #ffffff;
+        --border: #ddd8ea;
+        --border-hi: #ccc4e0;
+        --fg: #1a1726;
+        --fg-dim: #5d5978;
+        --fg-mute: #8f8ba8;
+        --accent-glow: rgba(124, 58, 237, 0.06);
+        --code-bg: #efecf6;
+        --code-border: #ddd8ea;
+      }
+    }
+
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      background-image: radial-gradient(circle at 1px 1px, var(--border) 1px, transparent 0);
+      background-size: 32px 32px;
+      color: var(--fg);
+      font-family: var(--sans);
+      font-size: 15px;
+      line-height: 1.6;
+      -webkit-font-smoothing: antialiased;
+      text-rendering: optimizeLegibility;
+    }
+    a { color: var(--accent-hi); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code, pre { font-family: var(--mono); }
+
+    .wrap { max-width: 1080px; margin: 0 auto; padding: 0 24px; }
+    .wrap-wide { max-width: 1180px; margin: 0 auto; padding: 0 24px; }
+
+    /* ---- Nav ---- */
+    .nav {
+      position: sticky; top: 0; z-index: 50;
+      backdrop-filter: saturate(180%) blur(14px);
+      -webkit-backdrop-filter: saturate(180%) blur(14px);
+      background: color-mix(in srgb, var(--bg) 70%, transparent);
+      border-bottom: 1px solid var(--border);
+    }
+    .nav-inner {
+      display: flex; align-items: center; justify-content: space-between;
+      height: 60px;
+    }
+    .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: -0.01em; }
+    .brand svg { width: 22px; height: 22px; stroke: var(--accent-hi); fill: none; stroke-width: 1.6; }
+    .brand span { font-size: 15px; }
+    .nav-links { display: flex; gap: 26px; align-items: center; }
+    .nav-links a { position: relative; color: var(--fg-dim); font-size: 13.5px; font-weight: 500; text-decoration: none; transition: color 0.25s; }
+    .nav-links a::after {
+      content: ""; position: absolute; left: 0; right: 0; bottom: -3px; height: 1.5px;
+      background: var(--accent); transform: scaleX(0); transform-origin: left;
+      transition: transform 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .nav-links a:hover { color: var(--fg); text-decoration: none; }
+    .nav-links a:hover::after { transform: scaleX(1); }
+    .nav-cta {
+      display: inline-flex; align-items: center; gap: 6px;
+      padding: 7px 14px; border-radius: 8px; font-size: 13px; font-weight: 600;
+      background: var(--accent); color: #fff; text-decoration: none;
+      transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .nav-cta:hover { text-decoration: none; transform: translateY(-1px); box-shadow: 0 8px 20px rgba(124,58,237,0.3); }
+    .nav-cta svg { width: 14px; height: 14px; stroke: currentColor; fill: none; stroke-width: 1.8; }
+
+    /* ---- Hero ---- */
+    .hero { position: relative; overflow: hidden; padding: 88px 0 40px; text-align: center; }
+    .hero::before {
+      content: ""; position: absolute; inset: 0;
+      background: radial-gradient(800px 420px at 50% -10%, var(--accent-glow), transparent 70%);
+      pointer-events: none;
+    }
+    .hero-orb {
+      position: absolute; width: 600px; height: 600px; left: 50%; top: 38%;
+      transform: translate(-50%, -50%);
+      background: radial-gradient(circle, rgba(124,58,237,0.07) 0%, transparent 65%);
+      pointer-events: none; animation: orb-pulse 6s ease-in-out infinite;
+    }
+    @keyframes orb-pulse {
+      0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: 1; }
+      50% { transform: translate(-50%, -50%) scale(1.14); opacity: 0.6; }
+    }
+    .hero > * { position: relative; z-index: 1; }
+
+    .banner-frame {
+      display: inline-block; margin-bottom: 34px;
+      padding: 14px; border-radius: 18px;
+      background: var(--bg-card);
+      border: 1px solid var(--border-hi);
+      box-shadow: 0 24px 60px rgba(0,0,0,0.45), 0 0 0 1px rgba(124,58,237,0.06);
+    }
+    .banner-frame img { display: block; border-radius: 10px; max-width: 560px; width: 100%; }
+
+    .badge {
+      display: inline-flex; align-items: center; gap: 8px;
+      padding: 6px 13px; border-radius: 100px; font-size: 12px; font-weight: 600;
+      letter-spacing: 0.04em; text-transform: uppercase; color: var(--fg-dim);
+      background: color-mix(in srgb, var(--bg-elev) 70%, transparent);
+      border: 1px solid var(--border); backdrop-filter: blur(4px);
+      margin-bottom: 26px;
+    }
+    .badge .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); box-shadow: 0 0 8px var(--green); }
+    .hero h1 {
+      font-size: clamp(40px, 6.5vw, 66px); line-height: 1.02; font-weight: 800;
+      letter-spacing: -0.03em; margin: 0 0 20px; max-width: 15ch; margin-left: auto; margin-right: auto;
+    }
+    .hero h1 .accent {
+      background: linear-gradient(135deg, #7c3aed 0%, #a78bfa 50%, #c4b5fd 100%);
+      background-size: 200% 200%;
+      -webkit-background-clip: text; background-clip: text; color: transparent;
+      animation: shimmer 4s ease-in-out infinite;
+    }
+    @keyframes shimmer {
+      0%, 100% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+    }
+    .hero .sub {
+      font-size: clamp(15.5px, 2vw, 18.5px); color: var(--fg-dim);
+      max-width: 62ch; margin: 0 auto 32px; line-height: 1.65;
+    }
+    .hero .sub strong { color: var(--fg); font-weight: 600; }
+
+    .install {
+      display: flex; align-items: center; gap: 10px;
+      max-width: 520px; margin: 0 auto 14px;
+      padding: 12px 12px 12px 16px; border-radius: 10px;
+      background: color-mix(in srgb, var(--code-bg) 80%, transparent);
+      border: 1px solid var(--code-border); backdrop-filter: blur(4px);
+      transition: border-color 0.3s, box-shadow 0.3s;
+    }
+    .install:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+    .install .prompt { color: var(--fg-mute); font-family: var(--mono); font-size: 13px; }
+    .install code { flex: 1; color: var(--fg); font-size: 13px; white-space: nowrap; overflow: auto; }
+    .install button {
+      cursor: pointer; border: 1px solid var(--border); background: var(--bg-card);
+      color: var(--fg-dim); border-radius: 7px; padding: 5px 11px; font-size: 12px; font-weight: 600;
+      font-family: var(--sans); transition: all 0.25s;
+    }
+    .install button:hover { border-color: var(--accent); color: var(--fg); }
+    .install button.copied { color: var(--green); border-color: var(--green); animation: copy-pop 0.3s ease; }
+    @keyframes copy-pop { 0% { transform: scale(1); } 50% { transform: scale(1.08); } 100% { transform: scale(1); } }
+
+    .hero-meta { display: flex; flex-wrap: wrap; gap: 8px 18px; justify-content: center; margin-top: 28px; }
+    .hero-meta span { font-size: 12.5px; color: var(--fg-mute); display: inline-flex; align-items: center; gap: 6px; }
+    .hero-meta svg { width: 14px; height: 14px; stroke: var(--accent-hi); fill: none; stroke-width: 1.6; }
+
+    /* ---- Sections ---- */
+    section { position: relative; padding: 84px 0; }
+    section::before {
+      content: ""; position: absolute; top: 0; left: 10%; right: 10%; height: 1px;
+      background: linear-gradient(90deg, transparent, var(--border), transparent);
+    }
+    section:first-of-type::before { display: none; }
+    .eyebrow {
+      display: block; font-size: 12px; font-weight: 700; letter-spacing: 0.08em;
+      text-transform: uppercase; color: var(--accent-hi); margin-bottom: 14px;
+    }
+    h2 { font-size: clamp(27px, 3.8vw, 35px); font-weight: 700; letter-spacing: -0.025em; margin: 0 0 14px; }
+    .lead { color: var(--fg-dim); max-width: 60ch; font-size: 15.5px; margin: 0 0 40px; }
+    .center { text-align: center; }
+    .center .lead { margin-left: auto; margin-right: auto; }
+
+    /* ---- Feature grid ---- */
+    .grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; }
+    .grid-2 { grid-template-columns: repeat(2, 1fr); }
+    .feature {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px;
+      padding: 22px; transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+      opacity: 0; transform: translateY(16px);
+    }
+    .feature.visible { opacity: 1; transform: translateY(0); }
+    .feature:hover { transform: translateY(-4px); border-color: var(--border-hi); box-shadow: 0 16px 48px rgba(0,0,0,0.3); }
+    .feature .icon {
+      width: 42px; height: 42px; border-radius: 11px; display: grid; place-items: center;
+      background: var(--accent-glow); color: var(--accent-hi); margin-bottom: 16px;
+      transition: transform 0.3s ease;
+    }
+    .feature:hover .icon { transform: scale(1.08); }
+    .feature .icon svg { width: 21px; height: 21px; stroke: currentColor; stroke-width: 1.5; fill: none; }
+    .feature h3 { font-size: 15.5px; font-weight: 650; margin: 0 0 8px; letter-spacing: -0.01em; }
+    .feature p { font-size: 13.5px; color: var(--fg-dim); margin: 0; line-height: 1.55; }
+    .feature code { color: var(--fg); background: var(--code-bg); padding: 1px 5px; border-radius: 5px; font-size: 12px; }
+
+    .delay-1 { transition-delay: 0.04s; } .delay-2 { transition-delay: 0.08s; }
+    .delay-3 { transition-delay: 0.12s; } .delay-4 { transition-delay: 0.16s; }
+    .delay-5 { transition-delay: 0.2s; } .delay-6 { transition-delay: 0.24s; }
+
+    /* ---- Adapters (three columns) ---- */
+    .adapter {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px;
+      padding: 24px; transition: all 0.3s cubic-bezier(0.22, 1, 0.36, 1);
+      opacity: 0; transform: translateY(16px); position: relative;
+    }
+    .adapter.visible { opacity: 1; transform: translateY(0); }
+    .adapter:hover { transform: translateY(-4px); border-color: var(--border-hi); box-shadow: 0 16px 48px rgba(0,0,0,0.3); }
+    .adapter .tag {
+      position: absolute; top: 22px; right: 22px; font-size: 10.5px; font-weight: 700;
+      letter-spacing: 0.06em; text-transform: uppercase; color: var(--fg-mute);
+      border: 1px solid var(--border); border-radius: 6px; padding: 3px 8px;
+    }
+    .adapter .icon {
+      width: 44px; height: 44px; border-radius: 11px; display: grid; place-items: center;
+      background: var(--accent-glow); color: var(--accent-hi); margin-bottom: 18px;
+    }
+    .adapter .icon svg { width: 22px; height: 22px; stroke: currentColor; stroke-width: 1.5; fill: none; }
+    .adapter h3 { font-size: 16px; font-weight: 650; margin: 0 0 8px; }
+    .adapter p { font-size: 13.5px; color: var(--fg-dim); margin: 0 0 14px; line-height: 1.55; }
+    .adapter ul { list-style: none; padding: 0; margin: 0; }
+    .adapter li {
+      font-size: 12.5px; color: var(--fg-dim); padding: 6px 0 6px 18px; position: relative;
+      border-top: 1px solid var(--border);
+    }
+    .adapter li::before {
+      content: ""; position: absolute; left: 0; top: 13px; width: 8px; height: 8px;
+      border-radius: 2px; background: var(--accent); opacity: 0.85;
+    }
+    .adapter li code { color: var(--fg); font-size: 12px; }
+
+    /* ---- Tier-1 spotlight rows ---- */
+    .tier { display: grid; grid-template-columns: 220px 1fr; gap: 30px; align-items: center; padding: 26px 0; border-top: 1px solid var(--border); }
+    .tier:first-of-type { border-top: none; }
+    .tier .t-title h3 { font-size: 17px; font-weight: 650; margin: 0 0 6px; display: flex; align-items: center; gap: 10px; }
+    .tier .t-title h3 svg { width: 18px; height: 18px; stroke: var(--accent-hi); fill: none; stroke-width: 1.5; }
+    .tier .t-title .k { font-size: 12px; color: var(--fg-mute); font-family: var(--mono); }
+    .tier .t-body p { font-size: 14px; color: var(--fg-dim); margin: 0 0 12px; line-height: 1.6; }
+    .tier .t-body pre {
+      margin: 0; background: var(--code-bg); border: 1px solid var(--code-border);
+      border-radius: 10px; padding: 14px 16px; overflow: auto;
+    }
+    .tier .t-body code { color: var(--fg); font-size: 12.5px; }
+    .tier .t-body code .c { color: var(--fg-mute); }
+
+    /* ---- Quick start two-column ---- */
+    .quick { display: grid; grid-template-columns: 1fr 1fr; gap: 40px; align-items: start; }
+    .quick pre {
+      margin: 0; background: var(--code-bg); border: 1px solid var(--code-border);
+      border-radius: 12px; padding: 18px 20px; overflow: auto;
+    }
+    .quick code { color: var(--fg); font-size: 13px; line-height: 1.7; }
+    .quick code .k { color: var(--accent-hi); }
+    .quick code .c { color: var(--fg-mute); }
+    .quick code .s { color: var(--green); }
+    .step-list { list-style: none; padding: 0; margin: 0; }
+    .step-list li { display: flex; gap: 14px; align-items: flex-start; padding: 12px 0; border-bottom: 1px solid var(--border); font-size: 14px; color: var(--fg-dim); }
+    .step-num {
+      flex: 0 0 28px; height: 28px; border-radius: 7px; background: var(--accent-glow);
+      color: var(--accent-hi); display: grid; place-items: center;
+      font-family: var(--mono); font-size: 12px; font-weight: 700;
+    }
+    .step-list li strong { color: var(--fg); font-weight: 600; }
+
+    /* ---- Security ---- */
+    .security {
+      background: var(--bg-card); border: 1px solid var(--border); border-radius: 14px; padding: 28px;
+    }
+    .security .arch-notes { list-style: none; margin: 0; padding: 0; }
+    .security li {
+      padding: 12px 0 12px 20px; border-left: 2px solid var(--border); position: relative;
+      font-size: 13.5px; color: var(--fg-dim); transition: border-color 0.3s; line-height: 1.55;
+    }
+    .security li:hover { border-left-color: var(--accent); }
+    .security li::before {
+      content: ""; position: absolute; left: -4px; top: 19px; width: 6px; height: 6px;
+      border-radius: 50%; background: var(--accent); transition: transform 0.3s;
+    }
+    .security li:hover::before { transform: scale(1.4); }
+    .security li strong { color: var(--fg); font-weight: 600; }
+    .security li code { color: var(--fg); background: var(--code-bg); padding: 1px 5px; border-radius: 5px; font-size: 12px; }
+
+    /* ---- CTA band ---- */
+    .cta-band {
+      text-align: center; background:
+        radial-gradient(600px 300px at 50% 0%, var(--accent-glow), transparent 70%);
+      border: 1px solid var(--border); border-radius: 18px; padding: 52px 24px;
+    }
+    .cta-band h2 { margin-bottom: 10px; }
+    .cta-band p { color: var(--fg-dim); max-width: 46ch; margin: 0 auto 26px; }
+    .btn-row { display: flex; gap: 12px; justify-content: center; flex-wrap: wrap; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 8px; padding: 11px 20px; border-radius: 10px;
+      font-size: 14px; font-weight: 600; cursor: pointer; text-decoration: none;
+      transition: all 0.25s cubic-bezier(0.22, 1, 0.36, 1);
+    }
+    .btn svg { width: 16px; height: 16px; stroke: currentColor; fill: none; stroke-width: 1.8; }
+    .btn-primary { background: var(--accent); color: #fff; border: 1px solid var(--accent); }
+    .btn-primary:hover { text-decoration: none; transform: translateY(-2px); box-shadow: 0 12px 28px rgba(124,58,237,0.25); }
+    .btn-ghost { background: var(--bg-card); color: var(--fg); border: 1px solid var(--border); }
+    .btn-ghost:hover { text-decoration: none; transform: translateY(-2px); border-color: var(--accent); }
+
+    /* ---- Footer ---- */
+    footer { border-top: 1px solid var(--border); padding: 40px 0 56px; }
+    .foot { display: flex; flex-wrap: wrap; gap: 16px; justify-content: space-between; align-items: center; }
+    .foot .f-brand { display: flex; align-items: center; gap: 9px; font-size: 13px; color: var(--fg-mute); }
+    .foot .f-brand svg { width: 18px; height: 18px; stroke: var(--accent-hi); fill: none; stroke-width: 1.6; }
+    .foot .f-links { display: flex; flex-wrap: wrap; gap: 18px; }
+    .foot .f-links a { font-size: 13px; color: var(--fg-dim); display: inline-flex; align-items: center; gap: 6px; }
+    .foot .f-links a:hover { color: var(--fg); text-decoration: none; }
+    .foot .f-links svg { width: 15px; height: 15px; stroke: currentColor; fill: none; stroke-width: 1.7; }
+    .foot .copy { font-size: 12.5px; color: var(--fg-mute); width: 100%; }
+
+    .fade-up { opacity: 0; transform: translateY(20px); transition: opacity 0.6s cubic-bezier(0.22, 1, 0.36, 1), transform 0.6s cubic-bezier(0.22, 1, 0.36, 1); }
+    .fade-up.visible { opacity: 1; transform: translateY(0); }
+
+    /* ---- Responsive ---- */
+    @media (max-width: 900px) {
+      .grid { grid-template-columns: repeat(2, 1fr); }
+      .tier { grid-template-columns: 1fr; gap: 14px; }
+      .quick { grid-template-columns: 1fr; gap: 28px; }
+    }
+    @media (max-width: 620px) {
+      .grid, .grid-2 { grid-template-columns: 1fr; }
+      .nav-links { display: none; }
+      .hero { padding-top: 60px; }
+    }
+    @media (prefers-reduced-motion: reduce) {
+      * { animation: none !important; transition: none !important; }
+      .feature, .adapter, .fade-up { opacity: 1; transform: none; }
+      html { scroll-behavior: auto; }
+    }
+  </style>
+</head>
+<body>
+  <!-- NAV -->
+  <header class="nav">
+    <div class="wrap-wide nav-inner">
+      <a class="brand" href="#top" aria-label="browsy-bot home">
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 6l8-4 8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10z"/>
+          <path d="M9 12l2.5 2.5L15.5 9"/>
+        </svg>
+        <span>browsy-bot</span>
+      </a>
+      <nav class="nav-links" aria-label="Primary">
+        <a href="#features">Features</a>
+        <a href="#adapters">Adapters</a>
+        <a href="#toolkit">Toolkit</a>
+        <a href="#quickstart">Quick start</a>
+        <a href="#security">Security</a>
+      </nav>
+      <a class="nav-cta" href="https://github.com/Dream-Pixels-Forge/browsy-bot" target="_blank" rel="noopener">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 19c-4.3 1.4-4.3-2.2-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6 0 00-1.3-3.2 4.2 4.2 0 00-.1-3.2s-1.1-.3-3.7 1.4a13 13 0 00-6.8 0C6.7 2.8 5.6 3.1 5.6 3.1a4.2 4.2 0 00-.1 3.2A4.6 4.6 0 004.2 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg>
+        GitHub
+      </a>
+    </div>
+  </header>
+
+  <main id="top">
+    <!-- HERO -->
+    <section class="hero" style="padding-top: 60px;">
+      <div class="hero-orb" aria-hidden="true"></div>
+      <div class="wrap">
+        <div class="banner-frame fade-up">
+          <img src="assets/banner.png" alt="browsy-bot wordmark" width="2172" height="724" loading="eager" />
+        </div>
+        <div class="badge fade-up"><span class="dot"></span> v0.2.0 · Zero-middleware CDP</div>
+        <h1 class="fade-up">Browser automation,<br /><span class="accent">zero middleware.</span></h1>
+        <p class="sub fade-up">
+          <strong>browsy-bot</strong> talks directly to the Chrome DevTools Protocol — no Puppeteer, no Playwright, no ChromeDriver. One CDP core, three adapters: an <strong>OpenCode plugin</strong>, a universal <strong>MCP server</strong>, and a <strong>CLI</strong>. It even remembers selectors and flows across sessions.
+        </p>
+        <div class="install fade-up" role="group" aria-label="Install command">
+          <span class="prompt">$</span>
+          <code id="install-cmd">npm i -g browsy-bot</code>
+          <button id="copy-btn" type="button" aria-label="Copy install command">Copy</button>
+        </div>
+        <div class="hero-meta fade-up">
+          <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M13 2L3 14h7l-1 8 10-12h-7z"/></svg> Zero middleware</span>
+          <span><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg> Direct CDP WebSocket</span>
+          <span><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 0116 0"/><path d="M4 12v3a1 1 0 001 1h1M20 12v3a1 1 0 01-1 1h-1"/><circle cx="9" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/></svg> MIT · Node ≥ 18</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- FEATURES -->
+    <section id="features">
+      <div class="wrap">
+        <span class="eyebrow">Why browsy-bot</span>
+        <h2 class="fade-up">The raw protocol, with zero in the way.</h2>
+        <p class="lead fade-up">Every call gets an explicit <code style="color:var(--fg);background:var(--code-bg);padding:1px 5px;border-radius:5px;font-size:12.5px">browserUrl</code> and optional <code style="color:var(--fg);background:var(--code-bg);padding:1px 5px;border-radius:5px;font-size:12.5px">targetId</code> — no hidden driver state, no extra binaries. These are the pillars.</p>
+        <div class="grid">
+          <div class="feature delay-1">
+            <div class="icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4z"/><path d="M4 9h16M9 4v16"/></svg></div>
+            <h3>Zero middleware</h3>
+            <p>No ChromeDriver, Puppeteer, or Playwright. A direct CDP WebSocket — minimal latency, full protocol fidelity, deterministic lifecycle.</p>
+          </div>
+          <div class="feature delay-2">
+            <div class="icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/><circle cx="12" cy="12" r="4"/></svg></div>
+            <h3>Zero hidden state</h3>
+            <p>Addressed explicitly per call. Sessions are cached when you want them, torn down when you don't — you always know what's connected.</p>
+          </div>
+          <div class="feature delay-3">
+            <div class="icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2"/></svg></div>
+            <h3>Granular targeting</h3>
+            <p>Operate on specific tabs and windows via <code>targetId</code>, or auto-discover the first page target. Full multi-tab control.</p>
+          </div>
+          <div class="feature delay-4">
+            <div class="icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M7 13h6M7 17h10"/></svg></div>
+            <h3>Protocol-complete</h3>
+            <p>Domain wrappers for Page, Runtime, Performance, Accessibility, and Target — the CDP surface you actually need, typed.</p>
+          </div>
+          <div class="feature delay-5">
+            <div class="icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V6a2 2 0 012-2h12a2 2 0 012 2v2"/><path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/><path d="M12 6v12M8 10v4M16 10v4"/></svg></div>
+            <h3>Multi-tool</h3>
+            <p>One core, three adapters: an OpenCode plugin, a universal MCP server, and a CLI — all built on the same typed CDP client.</p>
+          </div>
+          <div class="feature delay-6">
+            <div class="icon"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/><path d="M12 7v4M8.5 16.5L7 18M15.5 16.5L17 18M5 17l2-3M19 17l-2-3"/></svg></div>
+            <h3>Learns across sessions</h3>
+            <p>Optional <a href="https://github.com/Dream-Pixels-Forge/memorius" target="_blank" rel="noopener">memorius</a> integration stores selectors, quirks, and navigation flows — and surfaces them before the next task.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ADAPTERS -->
+    <section id="adapters">
+      <div class="wrap">
+        <span class="eyebrow">One core, three ways in</span>
+        <h2 class="fade-up">Meet it through the tool you already use.</h2>
+        <p class="lead fade-up">The same CDP client powers an OpenCode plugin, a universal MCP server, and a CLI. Pick your surface — the core is identical.</p>
+        <div class="grid grid-2" style="grid-template-columns: repeat(3, 1fr);">
+          <div class="adapter delay-1">
+            <span class="tag">8 tools</span>
+            <div class="icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V7z"/></svg></div>
+            <h3>OpenCode plugin</h3>
+            <p>Drop it into your OpenCode config and agents get a first-class <code>browsy_*</code> toolset, plus an optional bundled agent skill.</p>
+            <ul>
+              <li><code>navigate</code> · <code>screenshot</code> · <code>evaluate</code></li>
+              <li><code>recall</code> · <code>wait</code> · <code>console</code></li>
+              <li><code>network_log</code> · <code>list_tabs</code></li>
+            </ul>
+          </div>
+          <div class="adapter delay-2">
+            <span class="tag">9 tools</span>
+            <div class="icon"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 8V6a2 2 0 012-2h12a2 2 0 012 2v2"/><path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/><path d="M12 6v12M8 10v4M16 10v4"/></svg></div>
+            <h3>Universal MCP server</h3>
+            <p>Speak MCP over stdio. Works with Claude Code, Cursor, Gemini CLI, Cline, Continue, Zed, Hermes — and OpenCode's own MCP support.</p>
+            <ul>
+              <li>All 8 plugin tools, plus <code>new_tab</code></li>
+              <li>One config line in any MCP client</li>
+              <li>Node or Bun, out of the box</li>
+            </ul>
+          </div>
+          <div class="adapter delay-3">
+            <span class="tag">full set</span>
+            <div class="icon"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M13 15h4"/></svg></div>
+            <h3>CLI</h3>
+            <p>Any agent with a terminal can shell out. Stable exit codes and a <code>--json</code> machine-readable contract for scripted use.</p>
+            <ul>
+              <li><code>navigate</code> · <code>screenshot</code> · <code>eval</code></li>
+              <li><code>extract</code> · <code>doctor</code> · <code>ensure-browser</code></li>
+              <li><code>tabs</code> · <code>console</code> · <code>network</code></li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TOOLKIT (Tier 1) -->
+    <section id="toolkit">
+      <div class="wrap">
+        <span class="eyebrow">v0.2.0 toolkit</span>
+        <h2 class="fade-up">Primitives that remove the tedious parts.</h2>
+        <p class="lead fade-up">Beyond raw CDP, browsy-bot ships a small toolkit that covers the jobs people actually automate — diagnostics, data pulls, browser lifecycle, and real input events.</p>
+
+        <div class="tier fade-up">
+          <div class="t-title">
+            <h3><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12a9 9 0 1118 0 9 9 0 01-18 0z"/><path d="M12 8v4l3 2"/></svg> <span class="k">doctor</span></h3>
+            <div class="k">Read-only diagnostics</div>
+          </div>
+          <div class="t-body">
+            <p>Probes the CDP endpoint, target count, browser-binary discovery, and memorius availability, then returns an actionable report with next-step suggestions. The first thing to run when nothing works.</p>
+            <pre><code>browsy doctor --json
+<span class="c"># not ready: CDP endpoint unreachable. Launch Chrome with:</span>
+<span class="c">#   chrom… --headless --no-sandbox, or run "browsy ensure-browser".</span></code></pre>
+          </div>
+        </div>
+
+        <div class="tier fade-up">
+          <div class="t-title">
+            <h3><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 4h16v16H4z"/><path d="M4 9h16M9 4v16"/></svg> <span class="k">extract</span></h3>
+            <div class="k">Structured data pull</div>
+          </div>
+          <div class="t-body">
+            <p>Pulls typed records from matching elements in a single in-page script — no bespoke <code>evaluate</code> boilerplate. Field specs: <code>text</code>, <code>html</code>, <code>value</code>, or <code>attr:&#x3c;name&#x3e;</code>.</p>
+            <pre><code>browsy extract "article.card" text "attr:src" value
+<span class="c"># → [ { "text": "...", "src": "..." }, ... ]</span></code></pre>
+          </div>
+        </div>
+
+        <div class="tier fade-up">
+          <div class="t-title">
+            <h3><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14M16 5v14M8 9h8M8 15h8"/></svg> <span class="k">ensure-browser · stop-browser</span></h3>
+            <div class="k">Self-service lifecycle</div>
+          </div>
+          <div class="t-body">
+            <p><code>ensure-browser</code> probes the endpoint and, if it's down, spawns a Chrome/Chromium on a <em>dedicated</em> profile dir (never your logged-in one), writes a pidfile, and waits for CDP to answer. <code>stop-browser</code> SIGTERMs the recorded pid.</p>
+            <pre><code>browsy ensure-browser --port 9222 --no-headless
+browsy stop-browser</code></pre>
+          </div>
+        </div>
+
+        <div class="tier fade-up">
+          <div class="t-title">
+            <h3><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3v18M18 3v18M6 8h12M6 16h12"/></svg> <span class="k">--trusted input</span></h3>
+            <div class="k">Renderer-trusted events</div>
+          </div>
+          <div class="t-body">
+            <p><code>click</code> and <code>fill</code> gain an opt-in <code>--trusted</code> flag that dispatches renderer-trusted CDP input events (<code>Input.dispatchMouseEvent</code> / <code>Input.insertText</code>) instead of JS-dispatched ones — so the page sees a real user event.</p>
+            <pre><code>browsy click ".save" --trusted
+browsy fill "#email" "a@b.c" --trusted</code></pre>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- QUICK START -->
+    <section id="quickstart">
+      <div class="wrap">
+        <span class="eyebrow">Get started</span>
+        <h2 class="fade-up">From zero to a driven tab in three lines.</h2>
+        <p class="lead fade-up">As a standalone library there is no build step on the consumer side — import, connect, act.</p>
+        <div class="quick">
+          <pre class="fade-up"><code><span class="k">import</span> { getSession, navigatePage, click, extract } <span class="k">from</span> <span class="s">"browsy-bot"</span>;
+
+<span class="k">const</span> s = <span class="k">await</span> getSession(<span class="s">"ws://localhost:9222"</span>);
+<span class="k">await</span> navigatePage(s, <span class="s">"https://example.com"</span>);
+<span class="k">await</span> click(s, <span class="s">".save"</span>, { trusted: <span class="k">true</span> });
+<span class="k">const</span> rows = <span class="k">await</span> extract(s, <span class="s">"article.card"</span>, [<span class="s">"text"</span>, <span class="s">"value"</span>]);</code></pre>
+          <div>
+            <ol class="step-list fade-up">
+              <li><span class="step-num">01</span><span><strong>Point it at a browser.</strong> Start Chrome with remote debugging, or let <code>browsy ensure-browser</code> start a dedicated one for you.</span></li>
+              <li><span class="step-num">02</span><span><strong>Get a session.</strong> <code>getSession(browserUrl, { targetId? })</code> returns a cached CDP socket keyed by endpoint + tab.</span></li>
+              <li><span class="step-num">03</span><span><strong>Act.</strong> Navigate, click, fill, extract, capture console and network — all over the same session.</span></li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- SECURITY -->
+    <section id="security">
+      <div class="wrap">
+        <span class="eyebrow">Operating notes</span>
+        <h2 class="fade-up">CDP is a powerful channel. Know the blast radius.</h2>
+        <p class="lead fade-up">A live endpoint is equivalent to a shell on the machine that runs Chrome. Here's the posture.</p>
+        <div class="security fade-up">
+          <ul class="arch-notes">
+            <li><strong>Loopback only.</strong> The default is <code>ws://localhost:9222</code>. Don't bind the CDP port to <code>0.0.0.0</code> unless it's behind a firewall and you own the blast radius.</li>
+            <li><strong>Profile-scoped launch.</strong> <code>ensure-browser</code> only ever starts a browser on a dedicated <code>user-data-dir</code> — never your logged-in profile. If you want a logged-in browser, launch it yourself and point <code>-u</code> at it.</li>
+            <li><strong><code>--trusted</code> is still JS-gated.</strong> The trusted path measures an element's rect in-page then dispatches input events at that coordinate. A page can move the target between measure and dispatch; "trusted" means the listener sees a user-originated event, not a synthetic <code>el.click()</code>.</li>
+            <li><strong>Memorius learns persist.</strong> Learnings live on disk; if the vault is shared, learned selectors and flows become information to other agents on the host. Use a per-user or per-project vault.</li>
+          </ul>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section id="start">
+      <div class="wrap">
+        <div class="cta-band fade-up">
+          <h2>Drive a real browser today.</h2>
+          <p>MIT-licensed, dependency-light, and built so any agent can pick it up. Install it, point it at a browser, start automating.</p>
+          <div class="btn-row">
+            <a class="btn btn-primary" href="https://github.com/Dream-Pixels-Forge/browsy-bot" target="_blank" rel="noopener">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 19c-4.3 1.4-4.3-2.2-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6 0 00-1.3-3.2 4.2 4.2 0 00-.1-3.2s-1.1-.3-3.7 1.4a13 13 0 00-6.8 0C6.7 2.8 5.6 3.1 5.6 3.1a4.2 4.2 0 00-.1 3.2A4.6 4.6 0 004.2 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg>
+              View on GitHub
+            </a>
+            <a class="btn btn-ghost" href="#quickstart">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 12a8 8 0 018-8 8 8 0 018 8M20 12v4M4 12v4"/></svg>
+              Quick start
+            </a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="wrap foot">
+      <div class="f-brand">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6l8-4 8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10z"/><path d="M9 12l2.5 2.5L15.5 9"/></svg>
+        browsy-bot
+      </div>
+      <div class="f-links">
+        <a href="https://github.com/Dream-Pixels-Forge/browsy-bot" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 19c-4.3 1.4-4.3-2.2-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6 0 00-1.3-3.2 4.2 4.2 0 00-.1-3.2s-1.1-.3-3.7 1.4a13 13 0 00-6.8 0C6.7 2.8 5.6 3.1 5.6 3.1a4.2 4.2 0 00-.1 3.2A4.6 4.6 0 004.2 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg>
+          Repository
+        </a>
+        <a href="https://github.com/Dream-Pixels-Forge/browsy-bot/releases" target="_blank" rel="noopener">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="5" r="2.5"/><circle cx="5" cy="19" r="2.5"/><circle cx="19" cy="19" r="2.5"/><path d="M12 7.5v4M8.5 16.5L7 18M15.5 16.5L17 18"/></svg>
+          Releases
+        </a>
+        <a href="#security">Security</a>
+        <a href="#quickstart">Docs</a>
+      </div>
+      <div class="copy">MIT © 2026 Dream-Pixels-Forge · Zero-middleware CDP browser automation · <a href="https://dream-pixels-forge.github.io/browsy-bot/" rel="noopener">dream-pixels-forge.github.io/browsy-bot</a></div>
+    </div>
+  </footer>
+
+  <script>
+    (function () {
+      var reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+      // Copy install command
+      var btn = document.getElementById("copy-btn");
+      var cmd = document.getElementById("install-cmd");
+      if (btn && cmd) {
+        btn.addEventListener("click", function () {
+          var text = cmd.textContent;
+          var done = function () {
+            btn.textContent = "Copied";
+            btn.classList.add("copied");
+            setTimeout(function () { btn.textContent = "Copy"; btn.classList.remove("copied"); }, 1400);
+          };
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            navigator.clipboard.writeText(text).then(done, done);
+          } else {
+            var ta = document.createElement("textarea");
+            ta.value = text; document.body.appendChild(ta); ta.select();
+            try { document.execCommand("copy"); } catch (e) {}
+            document.body.removeChild(ta); done();
+          }
+        });
+      }
+
+      // Scroll-triggered entrance
+      var els = document.querySelectorAll(".feature, .adapter, .fade-up, .tier");
+      if (reduced || !("IntersectionObserver" in window)) {
+        els.forEach(function (el) { el.classList.add("visible"); });
+      } else {
+        var obs = new IntersectionObserver(function (entries) {
+          entries.forEach(function (entry) {
+            if (entry.isIntersecting) {
+              entry.target.classList.add("visible");
+              obs.unobserve(entry.target);
+            }
+          });
+        }, { threshold: 0.1 });
+        els.forEach(function (el) { obs.observe(el); });
+      }
+    })();
+  </script>
+</body>
+</html>

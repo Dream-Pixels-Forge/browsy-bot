@@ -1,0 +1,51 @@
+name: Deploy to GitHub Pages
+
+# Trigger: push to main when the site source (docs/) OR this workflow changes.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'docs/**'
+      - '.github/workflows/pages.yml'
+  workflow_dispatch:
+
+# Allow one concurrent deployment; queue newer runs.
+# Canceling in-progress Pages deploys is unsafe.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+# Minimum permissions for the official Pages Actions:
+#   pages: write    — to upload and deploy artifacts
+#   id-token: write — for OIDC trust (required by some Pages internals)
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+        with:
+          # Bootstrap the Pages site on first run. No-op once enabled.
+          # `enablement: true` means no manual "Enable Pages" click needed.
+          enablement: true
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          # Static site root (contains index.html).
+          path: docs
+
+      - id: deployment
+        name: Deploy to GitHub Pages
+        uses: actions/deploy-pages@v4
