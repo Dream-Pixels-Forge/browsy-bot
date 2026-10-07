@@ -3,6 +3,7 @@ import type {
   Runtime,
   Performance,
   Accessibility,
+  Target,
 } from './types.js';
 
 type Connection = { send<T = any>(method: string, params?: any): Promise<T> };
@@ -69,6 +70,25 @@ export class AccessibilityDomain {
   }
 }
 
+export class TargetDomain {
+  constructor(private connection: Connection) {}
+
+  /** Get all targets via the browser-level endpoint. */
+  async getTargets(): Promise<Target.GetTargetsResult> {
+    return this.connection.send('Target.getTargets', {});
+  }
+
+  /** Create a new browser tab. Use on a browser-level (no targetId) connection. */
+  async createTarget(params: { url?: string }): Promise<Target.CreateTargetResult> {
+    return this.connection.send('Target.createTarget', params);
+  }
+
+  /** Close a target. Use on a browser-level connection. */
+  async closeTarget(params: { targetId: string }): Promise<Target.CloseTargetResult> {
+    return this.connection.send('Target.closeTarget', params);
+  }
+}
+
 export function getPageDomain(connection: Connection) {
   return new PageDomain(connection);
 }
@@ -83,4 +103,8 @@ export function getPerformanceDomain(connection: Connection) {
 
 export function getAccessibilityDomain(connection: Connection) {
   return new AccessibilityDomain(connection);
+}
+
+export function getTargetDomain(connection: Connection) {
+  return new TargetDomain(connection);
 }

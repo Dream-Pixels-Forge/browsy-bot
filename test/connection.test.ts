@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
-import { CDPConnection, createConnection } from '../src/connection.js';
-import { ConnectionStatus } from '../src/types.js';
+import { CDPConnection, createConnection } from '../src/core/connection.js';
+import { ConnectionStatus } from '../src/core/types.js';
 
 // vi.hoisted lifts the mock class above the hoisted vi.mock factory so it
 // is initialized before the factory runs.

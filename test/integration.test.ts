@@ -10,7 +10,7 @@ import {
   captureScreenshot,
   evaluate,
   createConnection,
-} from "../src/connection.js";
+} from "../src/core/connection.js";
 import { createBrowsy } from "../src/index.js";
 import * as http from "http";
 

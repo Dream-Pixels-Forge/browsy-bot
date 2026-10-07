@@ -1,13 +1,13 @@
 <div align="center">
   <img src="assets/banner.png" alt="browsy" />
   <h1>browsy</h1>
-  <p><strong>Zero-Middleware CDP Browser Automation for OpenCode</strong></p>
-  <p>Navigate, screenshot, and evaluate page JS in live Chrome/Chromium tabs via the Chrome DevTools Protocol — no Puppeteer, no Playwright, no drivers. Auto-discovers page targets and learns selectors, quirks, and flows across sessions via <a href="https://github.com/Dream-Pixels-Forge/memorius">memorius</a>.</p>
+  <p><strong>Zero-Middleware CDP Browser Automation</strong></p>
+  <p>Navigate, screenshot, and evaluate page JS in live Chrome/Chromium tabs via the Chrome DevTools Protocol — no Puppeteer, no Playwright, no drivers. One CDP core, three adapters: an <a href="#install-as-an-opencode-plugin">OpenCode plugin</a>, a universal <a href="#use-with-other-tools">MCP server</a>, and a <a href="#use-with-other-tools">CLI</a>. Learns selectors, quirks, and flows across sessions via <a href="https://github.com/Dream-Pixels-Forge/memorius">memorius</a>.</p>
   <p>
     <a href="https://github.com/Dream-Pixels-Forge/browsy-plugin">Standalone repo</a> ·
-    <a href="https://opencode.ai/docs/plugins/">Plugin docs</a> ·
-    <a href="https://opencode.ai/docs/skills/">Skill docs</a> ·
-    <a href="#install-as-an-opencode-plugin">Install</a>
+    <a href="#use-with-other-tools">Use with other tools</a> ·
+    <a href="#install-as-an-opencode-plugin">OpenCode plugin</a> ·
+    <a href="#api-standalone-library">Library API</a>
   </p>
   <hr />
 </div>
@@ -33,7 +33,7 @@ OpenCode auto-loads plugins from your config's `"plugin"` array at startup using
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
-  "plugin": ["browsy-plugin"]
+  "plugin": ["browsy-bot"]
 }
 ```
 
@@ -140,10 +140,96 @@ init, it is copied to `~/.config/opencode/skills/browsy/SKILL.md` so
 opencode's `skill` tool can discover and load it. Disable this with
 `"installSkill": false`.
 
+## Use with other tools
+
+The OpenCode plugin is just one of three adapters over the same CDP core.
+The other two are universal:
+
+- **MCP server** — works with any MCP client: Claude Code, Cursor,
+  Gemini CLI, Cline, Continue, Zed, Hermes, and (yes) OpenCode's own MCP
+  support. One config line and the full `browsy_*` toolset is available.
+- **CLI** — any agent with a terminal can shell out to `browsy`.
+  `--json` gives a stable machine-readable contract.
+- **Standalone library** — `import { createBrowsy } from "browsy-bot"`.
+
+### MCP server (universal)
+
+The server runs under Node and speaks MCP over stdio. Register it in
+your client:
+
+**Claude Code** (`.mcp.json` or `claude mcp add`):
+
+```json
+{
+  "mcpServers": {
+    "browsy": {
+      "command": "npx",
+      "args": ["tsx", "/path/to/browsy-bot/src/mcp.ts"]
+    }
+  }
+}
+```
+
+**Cursor / any client that takes a command+args**:
+
+```json
+{
+  "command": "node",
+  "args": ["/path/to/browsy-bot/dist/mcp.js"]
+}
+```
+
+**Hermes** (`config.yaml` `mcp.servers`):
+
+```yaml
+mcp:
+  servers:
+    browsy:
+      type: local
+      command:
+        - npx
+        - tsx
+        - /path/to/browsy-bot/src/mcp.ts
+```
+
+Environment: `BROWSY_URL` sets the CDP endpoint (default
+`ws://localhost:9222`); `BROWSY_MEMORIUS_VAULT` / `BROWSY_MEMORIUS_SHELF`
+tune the optional memorius learning.
+
+Tools exposed: `browsy_navigate`, `browsy_new_tab`, `browsy_list_tabs`,
+`browsy_screenshot`, `browsy_evaluate`, `browsy_wait`, `browsy_console`,
+`browsy_network_log`, `browsy_recall`.
+
+### CLI (universal fallback)
+
+```bash
+# One-shot install
+npm i -g browsy-bot            # or: npx tsx /path/to/browsy-bot/src/cli.ts
+
+# Addressing: -u/--url (CDP endpoint) and -t/--target (tab id). -j/--json
+# switches every command to machine-readable output.
+browsy navigate https://example.com -j
+browsy screenshot --full -o out.png
+browsy eval "document.title"
+browsy wait ".loaded" --timeout 5000
+browsy click ".save"
+browsy fill "#email" "a@b.c"
+browsy page-text
+browsy console            # captured JS console entries
+browsy network           # captured network requests
+browsy tabs              # list open tabs
+browsy new-tab https://x.test
+browsy close-tab <id>
+browsy mcp               # run the MCP stdio server
+```
+
+Exit codes: `0` success, `1` runtime/CDP-operation failure, `2` usage
+error, `3` CDP connection failure.
+
 ## API (standalone library)
 
 ```ts
-import { createBrowsy } from "browsy-plugin";
+import { createBrowsy } from "browsy-bot";
 
 // Create a Browsy instance
 const browsy = createBrowsy("ws://localhost:9222");
@@ -181,7 +267,7 @@ Factory function to create a Browsy instance.
 For quick one‑off operations without managing a `Browsy` instance:
 
 ```ts
-import { navigate, captureScreenshot, evaluate } from "browsy-plugin";
+import { navigate, captureScreenshot, evaluate } from "browsy-bot";
 
 // Navigate
 await navigate("ws://localhost:9222", "https://example.com");
@@ -272,7 +358,7 @@ npm run example
 
 ## Why “Zero Middleware”?
 
-Traditional browser automation layers (Selenium/WebDriver, Puppeteer, Playwright) introduce extra binaries, separate processes, protocol translation layers, and hidden internal state. `browsy-plugin` bypasses all of that: you talk **directly** to Chrome’s debugging interface, giving you minimal latency, full fidelity to CDP, a deterministic resource lifecycle, and no additional attack surface.
+Traditional browser automation layers (Selenium/WebDriver, Puppeteer, Playwright) introduce extra binaries, separate processes, protocol translation layers, and hidden internal state. `browsy-bot` bypasses all of that: you talk **directly** to Chrome’s debugging interface, giving you minimal latency, full fidelity to CDP, a deterministic resource lifecycle, and no additional attack surface.
 
 ## Use Cases in OpenCode
 

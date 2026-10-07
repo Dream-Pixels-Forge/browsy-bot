@@ -1,7 +1,7 @@
 {
-  "name": "browsy-plugin",
+  "name": "browsy-bot",
   "version": "0.1.0",
-  "description": "Zero-middleware Chrome DevTools Protocol plugin for OpenCode. Navigate, screenshot, and evaluate page JS in live tabs with memorius-powered learning.",
+  "description": "Zero-middleware Chrome DevTools Protocol browser automation. CDP core plus adapters: OpenCode plugin, MCP server, CLI. Navigate, screenshot, and evaluate page JS in live tabs with memorius-powered learning.",
   "type": "module",
   "main": "src/plugin.ts",
   "exports": {
@@ -12,6 +12,10 @@
     "./plugin": {
       "types": "./src/plugin.ts",
       "import": "./src/plugin.ts"
+    },
+    "./mcp": {
+      "types": "./src/mcp.ts",
+      "import": "./src/mcp.ts"
     }
   },
   "types": "src/index.ts",
@@ -28,9 +32,11 @@
     "test:coverage": "vitest run --coverage",
     "example": "tsx src/example.ts",
     "cli": "tsx src/cli.ts --help",
+    "mcp": "tsx src/mcp.ts",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.32.1",
     "@opencode-ai/plugin": "^1.18.5",
     "commander": "^12.1.0",
     "dotenv": "^16.4.5",

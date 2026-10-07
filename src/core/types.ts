@@ -1,4 +1,4 @@
-// CDP Types for Browsy Plugin
+// CDP Types for Browsy
 // Based on Chrome DevTools Protocol
 
 export interface CDPSession {
@@ -195,9 +195,61 @@ export namespace Accessibility {
   }
 }
 
+// Target Domain
+export namespace Target {
+  export interface TargetInfo {
+    targetId: string;
+    type: 'page' | 'service_worker' | 'shared_worker' | 'browser' | 'other' | 'background_page' | 'iframe';
+    title: string;
+    url: string;
+    attached?: boolean;
+    canAttach?: boolean;
+    parentId?: string;
+  }
+
+  export interface GetTargetsResult {
+    targetInfos: TargetInfo[];
+  }
+
+  export interface CreateTargetResult {
+    targetId: string;
+  }
+
+  export interface CloseTargetResult {
+    success: boolean;
+  }
+}
+
+// Console capture record
+export interface ConsoleEntry {
+  type: 'log' | 'info' | 'warn' | 'error' | 'debug' | 'exception' | string;
+  text: string;
+  timestamp?: number;
+}
+
+// Network capture record
+export interface NetworkEntry {
+  requestId: string;
+  method: string;
+  url: string;
+  status?: number;
+  statusText?: string;
+  resourceType?: string;
+}
+
 // Generic CDP Domain Handler
 export interface CDPDomain {
   handleMessage(message: CDPMessage): void;
+}
+
+// Shape of an entry from the CDP HTTP `/json/list` endpoint (used to
+// auto-discover page targets and list open tabs). Note this is the HTTP
+// shape — `id` — which matches the CDP `targetId` string.
+export interface TargetListEntry {
+  id: string;
+  type: string;
+  url: string;
+  title?: string;
 }
 
 // Connection Status

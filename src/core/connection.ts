@@ -1,15 +1,14 @@
+// CDP connection layer — tool-agnostic core. No OpenCode imports here.
 import WebSocket from 'ws';
 import * as http from 'http';
 import * as https from 'https';
-import { CDPMessage, ConnectionStatus } from './types.js';
-
-type TargetInfo = { id: string; type: string; url: string; title?: string };
+import { CDPMessage, ConnectionStatus, TargetListEntry } from './types.js';
 
 /**
  * Discover an available page target id via CDP's HTTP `/json/list` endpoint.
  * Returns the id of the first `type: "page"` target, or undefined if none.
  */
-async function discoverPageTarget(browserUrl: string): Promise<string | undefined> {
+export async function discoverPageTarget(browserUrl: string): Promise<string | undefined> {
   let httpUrl = browserUrl.trim().replace(/\/$/, '');
   if (httpUrl.startsWith('ws://')) httpUrl = httpUrl.replace(/^ws/, 'http');
   else if (httpUrl.startsWith('wss://')) httpUrl = httpUrl.replace(/^wss/, 'https');
@@ -23,7 +22,7 @@ async function discoverPageTarget(browserUrl: string): Promise<string | undefine
       res.on('data', (chunk) => (body += chunk));
       res.on('end', () => {
         try {
-          const targets = JSON.parse(body) as TargetInfo[];
+          const targets = JSON.parse(body) as TargetListEntry[];
           const page = targets.find((t) => t.type === 'page');
           resolve(page?.id);
         } catch {
@@ -33,6 +32,35 @@ async function discoverPageTarget(browserUrl: string): Promise<string | undefine
       res.on('error', () => resolve(undefined));
     });
     req.on('error', () => resolve(undefined));
+  });
+}
+
+/**
+ * List all CDP targets (tabs/frames) via the HTTP `/json/list` endpoint.
+ * Returns an empty array if the endpoint is unreachable.
+ */
+export async function listTargets(browserUrl: string): Promise<TargetListEntry[]> {
+  let httpUrl = browserUrl.trim().replace(/\/$/, '');
+  if (httpUrl.startsWith('ws://')) httpUrl = httpUrl.replace(/^ws/, 'http');
+  else if (httpUrl.startsWith('wss://')) httpUrl = httpUrl.replace(/^wss/, 'https');
+  else if (!/^https?:\/\//.test(httpUrl)) httpUrl = `http://${httpUrl}`;
+  httpUrl = httpUrl.replace(/\/devtools\/.*/, '');
+
+  const endpoint = `${httpUrl}/json/list`;
+  return new Promise((resolve) => {
+    const req = (endpoint.startsWith('https') ? https : http).get(endpoint, (res) => {
+      let body = '';
+      res.on('data', (chunk) => (body += chunk));
+      res.on('end', () => {
+        try {
+          resolve(JSON.parse(body) as TargetListEntry[]);
+        } catch {
+          resolve([]);
+        }
+      });
+      res.on('error', () => resolve([]));
+    });
+    req.on('error', () => resolve([]));
   });
 }
 
@@ -257,7 +285,7 @@ export async function evaluate(
 
 // Resolve the WebSocket debugger URL for a given targetId.
 // Accepts ws://, wss://, http://, https://, or a bare host:port.
-function resolveWsUrl(browserUrl: string, targetId?: string): string {
+export function resolveWsUrl(browserUrl: string, targetId?: string): string {
   let url = browserUrl.trim().replace(/\/$/, '');
 
   // Convert http(s):// -> ws(s)://

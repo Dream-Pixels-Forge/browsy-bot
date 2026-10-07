@@ -9,7 +9,13 @@ import { tool } from "@opencode-ai/plugin";
 import * as fs from "fs";
 import * as path from "path";
 import * as os from "os";
-import { navigate, captureScreenshot, evaluate } from "./connection.js";
+import { navigate, captureScreenshot, evaluate } from "./core/connection.js";
+import { getSession, closeAllSessions } from "./core/session.js";
+import {
+  waitForSelector,
+  navigatePage,
+  listTabs as sessionListTabs,
+} from "./core/actions.js";
 import { remember, recall } from "./memorius.js";
 
 export type BrowsyPluginOptions = {
@@ -40,9 +46,8 @@ function resolveUrl(options?: BrowsyPluginOptions): string {
 const SKILL_NAME = "browsy";
 const SKILL_CONTENT = `---
 name: browsy
-description: Drive Chrome/Chromium via the Chrome DevTools Protocol for live UI validation, screenshots, page evaluation, performance and accessibility auditing. Pairs with memorius to learn selectors and workflows across sessions.
+description: Drive Chrome/Chromium via the Chrome DevTools Protocol (CDP) for live UI validation, screenshots, page evaluation, and browser-automation learning. Works through the browsy MCP server, the browsy CLI, or any CDP adapter. Pairs with memorius to learn selectors and workflows across sessions.
 license: MIT
-compatibility: opencode
 metadata:
   audience: agents
   workflow: browser-automation
@@ -50,57 +55,78 @@ metadata:
 
 ## What I do
 
-Browsy gives you direct, zero-middleware control of a Chrome/Chromium instance
-through the Chrome DevTools Protocol (CDP). The browsy plugin registers these
-custom tools:
+Browsy gives you direct, zero-middleware control of a Chrome/Chromium
+instance through the Chrome DevTools Protocol (CDP). No Puppeteer, no
+Playwright, no ChromeDriver — you talk to Chrome's debugging interface
+directly.
 
-- **browsy_navigate** — navigate a connected tab to a URL.
-- **browsy_screenshot** — capture a screenshot (base64 PNG or file).
-- **browsy_evaluate** — run JavaScript in the page context.
-- **browsy_recall** — search past browser-automation learnings from memorius.
+The same toolset is available in three interchangeable shapes. Pick
+whichever your host agent already exposes:
+
+- **MCP tools** — when the browsy MCP server is registered, use
+  \`browsy_navigate\`, \`browsy_new_tab\`, \`browsy_list_tabs\`,
+  \`browsy_screenshot\`, \`browsy_evaluate\`, \`browsy_wait\`,
+  \`browsy_console\`, \`browsy_network_log\`, and \`browsy_recall\`
+  directly.
+- **CLI** — when a terminal is available, use the \`browsy\` binary:
+  \`browsy navigate <url>\`, \`browsy screenshot\`, \`browsy eval <js>\`,
+  \`browsy wait <selector>\`, \`browsy click <selector>\`,
+  \`browsy fill <selector> <value>\`, \`browsy page-text\`,
+  \`browsy console\`, \`browsy network\`, \`browsy tabs\`,
+  \`browsy new-tab [url]\`, \`browsy close-tab <id>\`.
+  Pass \`--json\` for machine-readable output.
+- **Standalone library** — \`import { createBrowsy } from "browsy-bot"\`.
+
+Prefer MCP when it's registered; it is the least-friction path. Fall
+back to the CLI when no MCP server is available.
 
 ## When to use me
 
-Use browsy when you need to interact with a real running browser:
-
 - Validate UI changes or visual regressions against a live page.
-- Reproduce a bug from a URL: open the page, run JS, capture console state.
+- Reproduce a bug from a URL: open the page, run JS, capture console +
+  network state.
 - Extract structured data from a rendered page without fragile selectors.
-- Audit accessibility via the full AX tree.
 - Capture a screenshot for documentation or an issue report.
+- Audit accessibility via the full AX tree.
 
 ## Prerequisites
 
-Launch Chrome with remote debugging before calling browsy tools:
+Launch Chrome/Chromium with remote debugging before calling browsy:
 
 \`\`\`bash
 chromium --remote-debugging-port=9222 --headless --no-sandbox
 \`\`\`
 
-The default endpoint is ws://localhost:9222. Override with the plugin's "url"
-option or the BROWSY_URL environment variable.
+The default endpoint is \`ws://localhost:9222\`. Override it with the
+\`browserUrl\` argument (MCP), the \`BROWSY_URL\` env var, or \`--url\` (CLI).
+
+## Using the tools
+
+A typical validation flow:
+
+1. \`browsy_navigate\` url=<page>
+2. \`browsy_wait\` selector=".loaded" (skip on static pages)
+3. \`browsy_screenshot\` fullPage=true (or just the viewport)
+4. \`browsy_console\` (dump any JS errors)
+5. \`browsy_network_log\` (dump any failing XHRs)
+
+Notes:
+
+- Target a specific tab with the \`targetId\` argument. Without it, the
+  plugin auto-discovers the first page target via the HTTP \`/json/list\`
+  endpoint. For deterministic behavior, list tabs first and pass the id.
+- Screenshots return base64 PNG. Pass \`outputPath\` to write to a file.
+- \`browsy_evaluate\` returns the value as JSON; set \`awaitPromise: true\`
+  for promises.
+- Console / network capture is session-scoped: run a session-creating call
+  (e.g. \`browsy_navigate\`) before \`browsy_console\` if you need early events.
 
 ## Learning with memorius
 
-When the plugin is configured with "remember": true (or BROWSY_REMEMBER=1),
-every successful browsy tool call stores a compact learning to memorius under
-the "browsy" shelf — the URL, the operation, and the outcome. Use the
-**browsy_recall** tool before a browser task to surface relevant past
-learnings (selectors that worked, page-specific quirks, navigation flows).
-
-You can also store and search learnings directly with the memorius tools if
-they are available: \`memorius_search\`, \`memorius_store\`.
-
-## Tips
-
-- Target a specific tab with the "targetId" argument; without it the plugin
-  talks to the browser-level endpoint (/devtools/browser), which does not
-  support the Page domain. For navigate/screenshot, prefer providing a
-  targetId or let the convenience helpers open /devtools/page/<id>.
-- Screenshots return base64 PNG. Pass "outputPath" to write to a file
-  relative to the project directory instead.
-- For evaluate, returnByValue is enabled so the result comes back as JSON.
-`;
+When memorius is installed, \`browsy_recall\` surfaces past learnings
+before a browser task. Store learnings yourself with the memorius CLI or
+tools if they are available.
+`
 
 function installSkill(options?: BrowsyPluginOptions): void {
   if (options?.installSkill === false) return;
@@ -297,6 +323,77 @@ export const BrowsyPlugin: Plugin = async (input, options) => {
             return `Recalled ${result.hits.length} memor${result.hits.length === 1 ? "y" : "ies"}:\n${lines.join("\n")}`;
           }
           return "No matching memories found.";
+        },
+      }),
+
+      // ---- additive tools over the core (MCP/CLI parity) ----------------
+
+      browsy_wait: tool({
+        description:
+          "Poll the DOM until an element matching `selector` exists. " +
+          "Returns when found; throws on timeout.",
+        args: {
+          selector: tool.schema.string().describe("CSS selector to wait for."),
+          timeoutMs: tool.schema.number().optional().describe("Max wait ms (default 10000)."),
+          intervalMs: tool.schema.number().optional().describe("Poll interval ms (default 100)."),
+          browserUrl: tool.schema.string().optional(),
+          targetId: tool.schema.string().optional(),
+        },
+        async execute(args) {
+          const url = args.browserUrl ?? defaultUrl;
+          const targetId = args.targetId ?? defaultTargetId;
+          const session = await getSession(url, { targetId });
+          await waitForSelector(session, args.selector, {
+            timeoutMs: args.timeoutMs,
+            intervalMs: args.intervalMs,
+          });
+          return `Found ${args.selector}`;
+        },
+      }),
+
+      browsy_console: tool({
+        description:
+          "Return console.log/info/warn/error/exception entries captured " +
+          "from the page since this OpenCode process started.",
+        args: {
+          browserUrl: tool.schema.string().optional(),
+          targetId: tool.schema.string().optional(),
+        },
+        async execute(args) {
+          const url = args.browserUrl ?? defaultUrl;
+          const targetId = args.targetId ?? defaultTargetId;
+          const session = await getSession(url, { targetId });
+          return JSON.stringify(session.captureConsole(), null, 2);
+        },
+      }),
+
+      browsy_network_log: tool({
+        description:
+          "Return network requests captured from the page since this " +
+          "OpenCode process started (method, url, status).",
+        args: {
+          browserUrl: tool.schema.string().optional(),
+          targetId: tool.schema.string().optional(),
+        },
+        async execute(args) {
+          const url = args.browserUrl ?? defaultUrl;
+          const targetId = args.targetId ?? defaultTargetId;
+          const session = await getSession(url, { targetId });
+          return JSON.stringify(session.captureNetwork(), null, 2);
+        },
+      }),
+
+      browsy_list_tabs: tool({
+        description: "List all open browser tabs (id, url, title, type).",
+        args: {
+          browserUrl: tool.schema.string().optional(),
+          targetId: tool.schema.string().optional(),
+        },
+        async execute(args) {
+          const url = args.browserUrl ?? defaultUrl;
+          const targetId = args.targetId ?? defaultTargetId;
+          const session = await getSession(url, { targetId });
+          return JSON.stringify(await sessionListTabs(session), null, 2);
         },
       }),
     },
