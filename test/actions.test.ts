@@ -62,8 +62,18 @@ function makeSession() {
             return { result: { value: '{"clicked":true,"tag":"BUTTON"}' } };
           if (expr.includes("el.value ="))
             return { result: { value: '{"filled":true,"tag":"INPUT"}' } };
+          // Trusted click: measure the element's viewport rect.
+          if (expr.includes("getBoundingClientRect"))
+            return { result: { value: { x: 10, y: 20, w: 100, h: 50 } } };
+          // Trusted fill: focus + select the control.
+          if (expr.includes("el.select"))
+            return { result: { value: true } };
           return { result: { value: "1" } };
         }
+        case "Input.dispatchMouseEvent":
+          return {};
+        case "Input.insertText":
+          return {};
         default:
           return {};
       }
@@ -163,8 +173,10 @@ describe("core actions", () => {
     const clipCall = conn.send.mock.calls.find(
       (c) => c[0] === "Page.captureScreenshot",
     );
-    expect(clipCall[1].clip).toMatchObject({ width: 800, height: 1200 });
-    expect(clipCall[1].captureBeyondViewport).toBe(true);
+    expect(clipCall).toBeDefined();
+    const clipParams = clipCall![1];
+    expect(clipParams.clip).toMatchObject({ width: 800, height: 1200 });
+    expect(clipParams.captureBeyondViewport).toBe(true);
   });
 
   it("navigatePage sends Page.navigate", async () => {
@@ -188,5 +200,68 @@ describe("core actions", () => {
     await expect(newTab(session, "https://x.test")).resolves.toBe("new-tab-id");
     await closeTab(session, "tab-1");
     expect(session.closeTab).toHaveBeenCalledWith("tab-1");
+  });
+
+  describe("trusted input", () => {
+    it("trusted click dispatches CDP mouse events at the element center", async () => {
+      const { session, conn } = makeSession();
+      // rect { x:10, y:20, w:100, h:50 } -> center (60, 45)
+      await expect(click(session, ".btn", { trusted: true })).resolves.toBe(true);
+
+      const presses = conn.send.mock.calls.filter((c) => c[0] === "Input.dispatchMouseEvent");
+      expect(presses).toHaveLength(2);
+      expect(presses[0][1]).toMatchObject({ type: "mousePressed", x: 60, y: 45, button: "left" });
+      expect(presses[1][1]).toMatchObject({ type: "mouseReleased", x: 60, y: 45, button: "left" });
+      // trusted path must NOT use the JS-dispatch script
+      const jsClicks = conn.send.mock.calls.filter(
+        (c) => c[0] === "Runtime.evaluate" && String(c[1]?.expression ?? "").includes("el.click()"),
+      );
+      expect(jsClicks).toHaveLength(0);
+    });
+
+    it("trusted click resolves false when the element is absent", async () => {
+      const conn = {
+        send: vi.fn(async (method: string, params?: any) => {
+          if (method === "Runtime.evaluate") return { result: { value: null } };
+          return {};
+        }),
+        on: vi.fn(),
+        close: vi.fn(async () => {}),
+        isConnected: () => true,
+        getTargetId: () => "t1",
+      };
+      const session: any = { browserUrl: "ws://localhost:9222", targetId: "t1", page: vi.fn(async () => conn) };
+      await expect(click(session, ".missing", { trusted: true })).resolves.toBe(false);
+    });
+
+    it("trusted fill focuses then inserts text via Input.insertText", async () => {
+      const { session, conn } = makeSession();
+      await expect(fill(session, "#email", "a@b.c", { trusted: true })).resolves.toBe(true);
+
+      const inserts = conn.send.mock.calls.filter((c) => c[0] === "Input.insertText");
+      expect(inserts).toHaveLength(1);
+      expect(inserts[0][1]).toEqual({ text: "a@b.c" });
+      // The JS value-assignment path must not run
+      const jsFills = conn.send.mock.calls.filter(
+        (c) => c[0] === "Runtime.evaluate" && String(c[1]?.expression ?? "").includes("el.value ="),
+      );
+      expect(jsFills).toHaveLength(0);
+    });
+
+    it("default click/fill still use the JS-dispatch path (backward compat)", async () => {
+      const { session, conn } = makeSession();
+      await click(session, ".save");
+      await fill(session, "#email", "x@y.z");
+      const jsClicks = conn.send.mock.calls.filter(
+        (c) => c[0] === "Runtime.evaluate" && String(c[1]?.expression ?? "").includes("el.click()"),
+      );
+      const jsFills = conn.send.mock.calls.filter(
+        (c) => c[0] === "Runtime.evaluate" && String(c[1]?.expression ?? "").includes("el.value ="),
+      );
+      expect(jsClicks).toHaveLength(1);
+      expect(jsFills).toHaveLength(1);
+      const trustedEvents = conn.send.mock.calls.filter((c) => c[0].startsWith("Input."));
+      expect(trustedEvents).toHaveLength(0);
+    });
   });
 });

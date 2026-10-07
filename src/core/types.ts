@@ -220,6 +220,45 @@ export namespace Target {
   }
 }
 
+// Input Domain (trusted events)
+export namespace Input {
+  export interface DispatchMouseEventParams {
+    type: 'mousePressed' | 'mouseReleased' | 'mouseMoved' | 'mouseWheel' | 'mouseWheelGesture';
+    modifiers?: number;
+    x: number;
+    y: number;
+    /** Mouse button name (CDP is case-sensitive: 'left' | 'middle' | 'right'). */
+    button?: 'left' | 'middle' | 'right' | 'back' | 'forward';
+    /** Bitmask of currently-pressed buttons. */
+    buttons?: number;
+    clickCount?: number;
+    /** Pixel size of the press (0 = unknown, e.g. for a keyboard-driven click). */
+    radiusX?: number;
+    radiusY?: number;
+  }
+  export interface InsertTextParams {
+    text: string;
+  }
+}
+
+// DOM Domain (for element → node → box-model resolution in trusted input)
+export namespace DOM {
+  export interface QuerySelectorResult {
+    nodeId: number;
+  }
+  export interface GetBoxModelResult {
+    model: {
+      content: number[];
+      border: number[];
+      padding: number[];
+      margin: number[];
+    };
+  }
+  export interface ResolveNodeResult {
+    object: unknown;
+  }
+}
+
 // Console capture record
 export interface ConsoleEntry {
   type: 'log' | 'info' | 'warn' | 'error' | 'debug' | 'exception' | string;
@@ -240,6 +279,14 @@ export interface NetworkEntry {
 // Generic CDP Domain Handler
 export interface CDPDomain {
   handleMessage(message: CDPMessage): void;
+}
+
+// Shape of the CDP HTTP `/json/version` endpoint response.
+export interface CDPBrowserInfo {
+  Browser: string;
+  'Protocol-Version': string;
+  webSocketDebuggerUrl?: string;
+  [key: string]: unknown;
 }
 
 // Shape of an entry from the CDP HTTP `/json/list` endpoint (used to

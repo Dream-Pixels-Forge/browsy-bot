@@ -53,11 +53,35 @@ function evalString(
 
 // --- interaction primitives ------------------------------------------------
 
+export interface InteractionOptions {
+  /**
+   * Use CDP `Input.dispatchMouseEvent` / `Input.insertText` (renderer-trusted
+   * events) instead of JS-dispatched events. Trusted events work with
+   * frameworks that check `event.isTrusted` (some React/Vue/Svelte form
+   * handlers, file pickers, drag-drop). The element must be visible and
+   * in the viewport. Default false keeps the legacy JS-dispatch path so
+   * existing callers see no behavior change.
+   */
+  trusted?: boolean;
+}
+
 /**
- * Click the first element matching `selector`. The in-page script queries,
- * dispatches a pointer + click sequence, and reports whether it clicked.
+ * Click the first element matching `selector`.
+ *
+ * Default (JS-dispatch): the in-page script queries, dispatches a pointer +
+ * click sequence, and reports whether it clicked.
+ *
+ * With `{ trusted: true }`: scroll the element into view, measure its
+ * viewport rect, and issue CDP `Input.dispatchMouseEvent` (mousePressed +
+ * mouseReleased at the element center) so the renderer treats it as a real
+ * user click.
  */
-export async function click(session: Session, selector: string): Promise<boolean> {
+export async function click(
+  session: Session,
+  selector: string,
+  options: InteractionOptions = {},
+): Promise<boolean> {
+  if (options.trusted) return clickTrusted(session, selector);
   const conn = await page(session);
   const script = `
     (() => {
@@ -81,14 +105,85 @@ export async function click(session: Session, selector: string): Promise<boolean
 }
 
 /**
+ * Trusted click: scroll into view, measure the element's *viewport* rect
+ * (the coordinate space `Input.dispatchMouseEvent` expects — note
+ * `DOM.getBoxModel` returns layout coords and would dispatch to the wrong
+ * place when the page is scrolled), then dispatch mousePressed/mouseReleased
+ * at the element's center.
+ */
+async function clickTrusted(session: Session, selector: string): Promise<boolean> {
+  const conn = await page(session);
+
+  const rectRes = await conn.send<{
+    result?: Runtime.RemoteObject;
+    exceptionDetails?: Runtime.ExceptionDetails;
+  }>(
+    'Runtime.evaluate',
+    {
+      expression: `(function(){
+        const el = document.querySelector(${quoteJs(selector)});
+        if (!el) return null;
+        el.scrollIntoView({ block: 'center', inline: 'center' });
+        const r = el.getBoundingClientRect();
+        return { x: r.x, y: r.y, w: r.width, h: r.height };
+      })()`,
+      returnByValue: true,
+    },
+  );
+  if (rectRes?.exceptionDetails) {
+    const d = rectRes.exceptionDetails as Runtime.ExceptionDetails & { exception?: { description?: string } };
+    throw new Error(d.exception?.description ?? d.text ?? 'trusted click: page JS threw');
+  }
+  const rect = rectRes?.result?.value as
+    | { x: number; y: number; w: number; h: number }
+    | null;
+  if (!rect) return false;
+
+  const x = Math.round(rect.x + rect.w / 2);
+  const y = Math.round(rect.y + rect.h / 2);
+
+  await conn.send<import('./types.js').Input.DispatchMouseEventParams>(
+    'Input.dispatchMouseEvent',
+    {
+      type: 'mousePressed',
+      x,
+      y,
+      button: 'left',
+      buttons: 1,
+      clickCount: 1,
+    },
+  );
+  await conn.send<import('./types.js').Input.DispatchMouseEventParams>(
+    'Input.dispatchMouseEvent',
+    {
+      type: 'mouseReleased',
+      x,
+      y,
+      button: 'left',
+      buttons: 0,
+      clickCount: 1,
+    },
+  );
+  return true;
+}
+
+/**
  * Set the value of a form control matching `selector` and fire the input
  * events most frameworks listen for.
+ *
+ * Default (JS-dispatch): `el.value = ...` + `input`/`change` events.
+ * With `{ trusted: true }`: focus + select the control, then issue
+ * CDP `Input.insertText` — the renderer sees a real typed-text event,
+ * which some frameworks (and file inputs, password managers, etc.)
+ * handle differently than a programmatic value assignment.
  */
 export async function fill(
   session: Session,
   selector: string,
   value: string,
+  options: InteractionOptions = {},
 ): Promise<boolean> {
+  if (options.trusted) return fillTrusted(session, selector, value);
   const conn = await page(session);
   const script = `
     (() => {
@@ -109,6 +204,44 @@ export async function fill(
     out = { filled: false, error: raw };
   }
   return out.filled;
+}
+
+/**
+ * Trusted fill: focus the control (JS-side, so non-editable targets still
+ * degrade), select any existing content, then `Input.insertText` the new
+ * value. For a text field the inserted text replaces the selection.
+ */
+async function fillTrusted(
+  session: Session,
+  selector: string,
+  value: string,
+): Promise<boolean> {
+  const conn = await page(session);
+
+  const focusRes = await conn.send<{
+    result?: Runtime.RemoteObject;
+    exceptionDetails?: Runtime.ExceptionDetails;
+  }>(
+    'Runtime.evaluate',
+    {
+      expression: `(function(){
+        const el = document.querySelector(${quoteJs(selector)});
+        if (!el) return false;
+        el.focus();
+        if (el.select) el.select();
+        return true;
+      })()`,
+      returnByValue: true,
+    },
+  );
+  if (focusRes?.exceptionDetails) {
+    const d = focusRes.exceptionDetails as Runtime.ExceptionDetails & { exception?: { description?: string } };
+    throw new Error(d.exception?.description ?? d.text ?? 'trusted fill: page JS threw');
+  }
+  if (focusRes?.result?.value !== true) return false;
+
+  await conn.send<import('./types.js').Input.InsertTextParams>('Input.insertText', { text: value });
+  return true;
 }
 
 export interface WaitForOptions {

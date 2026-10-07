@@ -23,6 +23,9 @@
 - **Multi-tool** – One CDP core, three adapters: an OpenCode plugin, a universal MCP server, and a CLI. The OpenCode plugin registers 8 `browsy_*` tools (`navigate`, `screenshot`, `evaluate`, `recall`, `wait`, `console`, `network_log`, `list_tabs`); the MCP server exposes the same 8 plus `browsy_new_tab` (9 total); the CLI ships the full command set.
 - **Learns across sessions** – Optional memorius integration stores browser-automation learnings (selectors, page quirks, navigation flows) and surfaces them before future tasks.
 - **Agent skill** – Bundled tool-agnostic `browsy` skill; the OpenCode plugin installs it to `~/.config/opencode/skills/` (disable with `"installSkill": false`), and it also works in Claude Code / Hermes / any agent skill dir.
+- **Self-service lifecycle** – `doctor` probes the endpoint, browser binary, and memorius with actionable suggestions; `ensure-browser`/`stop-browser` start and stop a dedicated CDP browser (scoped profile dir, never your real one).
+- **Structured extraction** – `extract` pulls typed records (text / html / value / attrs) from matching elements in a single in-page script, no bespoke `evaluate` boilerplate.
+- **Trusted input** – `click`/`fill` accept `--trusted` to dispatch renderer-trusted CDP input events (`Input.dispatchMouseEvent` / `Input.insertText`) instead of JS-dispatched ones, so the page sees a real user event.
 
 ## Install as an OpenCode plugin
 
@@ -218,7 +221,14 @@ browsy screenshot --full -o out.png
 browsy eval "document.title"
 browsy wait ".loaded" --timeout 5000
 browsy click ".save"
+browsy click ".save" --trusted        # renderer-trusted CDP mouse event
 browsy fill "#email" "a@b.c"
+browsy fill "#email" "a@b.c" --trusted  # trusted type-in via Input.insertText
+browsy extract "article.card" text "attr:src" value   # structured records
+browsy extract "li" text --limit 20
+browsy doctor                          # diagnostics + actionable suggestions
+browsy ensure-browser [--port N] [--binary PATH] [--no-headless]
+browsy stop-browser [--port N]
 browsy page-text
 browsy console            # captured JS console entries
 browsy network           # captured network requests
@@ -227,6 +237,16 @@ browsy new-tab https://x.test
 browsy close-tab <id>
 browsy mcp               # run the MCP stdio server
 ```
+
+**Browser lifecycle.** `ensure-browser` probes the CDP endpoint; if it's
+down it spawns a Chrome/Chromium on a *dedicated* `user-data-dir` under
+the browsy state dir (`$BROWSY_STATE_DIR` or `~/.browsy`), writes a
+pidfile, and polls `/json/version` until the endpoint answers. It
+never touches your real, logged-in Chrome profile. `stop-browser`
+SIGTERMs the recorded pid and clears the pidfile. `doctor` is read-only
+and reports endpoint reachability, binary discovery, and memorius
+availability with next-step suggestions — run it first when nothing
+works.
 
 Exit codes: `0` success, `1` runtime/CDP-operation failure, `2` usage
 error, `3` CDP connection failure.
@@ -455,10 +475,19 @@ equivalent to a shell on the machine that runs Chrome.
   surfaces them back to the agent. If the vault lives in a shared
   directory, learned selectors/URLs/flows become information to
   other agents on the host. Use a per-user or per-project vault.
-- **Browser-launch is intentionally out of scope.** Browsy never
-  starts Chrome for you; the operator owns the browser instance and
-  its auth state. This keeps the security boundary simple: if you
-  don't trust the agent, don't point a logged-in Chrome at it.
+- **Browser launch is opt-in and profile-scoped.** `ensure-browser`
+  can start a Chrome/Chromium for you, but only on a *dedicated*
+  `user-data-dir` under the browsy state dir — never your default,
+  logged-in profile. That keeps the boundary simple: the launched
+  browser carries no credentials you care about. If you want a
+  logged-in browser, launch it yourself and point `-u` at it; if you
+  don't trust the agent, don't.
+- **`--trusted` input is still JS-gated.** The trusted click/fill
+  path measures an element's rect in the page and dispatches CDP
+  input events at that coordinate. A malicious page can still move
+  the target between measure and dispatch (TOCTOU); the event is
+  "trusted" only in that the page's event listeners see it as a
+  user-originated input event, not a synthetic `el.click()`.
 
 ## License
 

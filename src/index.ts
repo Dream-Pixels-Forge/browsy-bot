@@ -35,15 +35,45 @@ import {
   closeTab,
 } from './core/actions.js';
 import { getSession, dropSession, closeAllSessions } from './core/session.js';
+import { extract } from './core/extract.js';
+import { doctor, probeVersion, findBrowserBinary, checkMemorius } from './core/diagnostics.js';
+import {
+  ensureBrowser,
+  launchBrowser,
+  stopBrowser,
+  buildBrowserArgs,
+  resolveBrowserBinary,
+  waitForReady,
+} from './core/browser.js';
 
 // Re-export the one-shot convenience helpers + domain classes.
 export { navigate, captureScreenshot, evaluate, createConnection, CDPConnection };
 export { PageDomain, RuntimeDomain, PerformanceDomain, AccessibilityDomain, TargetDomain };
 // Public types the documented API surface depends on (session actions, tab info).
-export type { TabInfo, WaitForOptions } from './core/actions.js';
+export type { TabInfo, WaitForOptions, InteractionOptions } from './core/actions.js';
 export type { Session, SessionOptions } from './core/session.js';
 export { click, fill, waitForSelector, pageText, pageTitle, currentUrl, screenshot, fullPageScreenshot, navigatePage, listTabs, newTab, closeTab };
 export { getSession, dropSession, closeAllSessions };
+// Structured data extraction (query-selector -> record[]).
+export { extract } from './core/extract.js';
+// Diagnostics: `doctor` report + the individual probes behind it.
+export { doctor, probeVersion, findBrowserBinary, checkMemorius } from './core/diagnostics.js';
+export type {
+  DoctorReport,
+  DoctorOptions,
+  DoctorProbes,
+  EndpointProbe,
+  BinaryProbe,
+  MemoriusProbe,
+} from './core/diagnostics.js';
+// Browser lifecycle: launch / stop / ensure a dedicated CDP browser.
+export { ensureBrowser, launchBrowser, stopBrowser, buildBrowserArgs, resolveBrowserBinary, waitForReady } from './core/browser.js';
+export type {
+  BrowserOptions,
+  LaunchedBrowser,
+  StoppedBrowser,
+  EnsuredBrowser,
+} from './core/browser.js';
 
 // Main Browsy class — a thin object holding cached domain wrappers over one
 // CDP connection.

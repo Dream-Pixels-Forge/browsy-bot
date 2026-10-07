@@ -19,7 +19,14 @@
  *   tabs                      List open tabs
  *   new-tab [url]             Open a new tab
  *   close-tab <id>            Close a tab
+ *   extract <selector> [f...] Pull structured records (text/attr/value)
+ *   doctor                    Diagnostics: endpoint, binary, memorius
+ *   ensure-browser            Launch a dedicated CDP browser if needed
+ *   stop-browser              Stop a browser started by ensure-browser
  *   mcp                       Run the MCP stdio server
+ *
+ * click/fill accept --trusted to use renderer-trusted CDP input events
+ * (Input.dispatchMouseEvent / Input.insertText) instead of JS dispatch.
  *
  * Global:
  *   -u, --url <url>           CDP endpoint (default $BROWSY_URL or ws://localhost:9222)
@@ -47,6 +54,9 @@ import {
   listTabs as sessionListTabs,
 } from './core/actions.js';
 import { startMcpServer } from './mcp.js';
+import { extract } from './core/extract.js';
+import { doctor } from './core/diagnostics.js';
+import { ensureBrowser, stopBrowser } from './core/browser.js';
 
 const DEFAULT_BROWSER_URL = () => process.env.BROWSY_URL ?? 'ws://localhost:9222';
 
@@ -126,10 +136,12 @@ export async function runCommand(
       const selector = String(args.selector ?? '');
       if (!selector) throw new CliUsageError('click requires a selector');
       const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
-      const clicked = await click(session, selector);
+      const clicked = await click(session, selector, {
+        trusted: Boolean(args.trusted),
+      });
       return {
         ok: clicked,
-        data: { clicked, selector },
+        data: { clicked, selector, trusted: Boolean(args.trusted) },
         message: clicked ? `Clicked ${selector}` : `No element matched ${selector}`,
       };
     }
@@ -139,10 +151,12 @@ export async function runCommand(
       if (!selector) throw new CliUsageError('fill requires a selector');
       const value = String(args.value ?? '');
       const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
-      const filled = await fill(session, selector, value);
+      const filled = await fill(session, selector, value, {
+        trusted: Boolean(args.trusted),
+      });
       return {
         ok: filled,
-        data: { filled, selector, value },
+        data: { filled, selector, value, trusted: Boolean(args.trusted) },
         message: filled ? `Filled ${selector}` : `No element matched ${selector}`,
       };
     }
@@ -184,6 +198,68 @@ export async function runCommand(
       const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
       await session.closeTab(id);
       return { ok: true, data: { targetId: id }, message: `Closed tab ${id}` };
+    }
+
+    case 'extract': {
+      const selector = String(args.selector ?? '');
+      if (!selector) throw new CliUsageError('extract requires a selector');
+      // Commander variadic: args.fields is the [field...] array (possibly empty).
+      const fields: string[] =
+        Array.isArray(args.fields) && (args.fields as string[]).length > 0
+          ? (args.fields as string[])
+          : ['text'];
+      const limit = typeof args.limit === 'number' ? args.limit : undefined;
+      const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
+      const records = await extract(session, selector, fields, { limit });
+      return {
+        ok: true,
+        data: records,
+        message: `${records.length} record${records.length === 1 ? '' : 's'} for ${selector}`,
+      };
+    }
+
+    case 'doctor': {
+      const report = await doctor(ctx.browserUrl);
+      return {
+        ok: report.ready,
+        data: report,
+        message: report.ready
+          ? `ready: ${report.endpoint.pageTargets} page target${report.endpoint.pageTargets === 1 ? '' : 's'}`
+          : `not ready: ${report.suggestions[0] ?? 'see report'}`,
+      };
+    }
+
+    case 'ensure-browser': {
+      const port = typeof args.port === 'number' ? args.port : undefined;
+      const binary = args.binary ? String(args.binary) : undefined;
+      const headless = typeof args.headless === 'boolean' ? args.headless : undefined;
+      const result = await ensureBrowser({ port, binary, headless });
+      if (result.launched && result.handle) {
+        return {
+          ok: true,
+          data: result,
+          message: `Launched ${result.handle.binary} (pid ${result.handle.pid}) at ${result.browserUrl}`,
+        };
+      }
+      return {
+        ok: true,
+        data: result,
+        message: `Endpoint already up: ${result.browserUrl} (${result.note ?? 'reachable'})`,
+      };
+    }
+
+    case 'stop-browser': {
+      const port = typeof args.port === 'number' ? args.port : undefined;
+      const result = stopBrowser({ port });
+      // A stopped or already-stale browser is a success (nothing left running);
+      // a missing pidfile with no recorded browser is also benign.
+      return {
+        ok: result.stopped,
+        data: result,
+        message: result.stopped
+          ? `Stopped browser (pid ${result.pid})`
+          : `No browser to stop: ${result.reason ?? 'unknown'}`,
+      };
     }
 
     default:
@@ -244,7 +320,7 @@ function buildProgram(): Command {
         } else {
           console.log(`[browsy] ${result.message}`);
           if (
-            ['screenshot', 'eval', 'console', 'network', 'tabs', 'page-text'].includes(name)
+            ['screenshot', 'eval', 'console', 'network', 'tabs', 'page-text', 'extract', 'doctor'].includes(name)
             && result.data !== undefined && result.data !== null
           ) {
             process.stdout.write(
@@ -288,8 +364,26 @@ function buildProgram(): Command {
     .option('--timeout <ms>', 'Max wait in ms', (v) => Number(v))
     .option('--interval <ms>', 'Poll interval in ms', (v) => Number(v))
     .action(act('wait', ['selector']));
-  program.command('click <selector>').description('Click the first matching element').action(act('click', ['selector']));
-  program.command('fill <selector> <value>').description('Set a form control value').action(act('fill', ['selector', 'value']));
+  program.command('click <selector>').description('Click the first matching element').option('--trusted', 'Dispatch a renderer-trusted CDP mouse event (Input.dispatchMouseEvent)').action(act('click', ['selector']));
+  program.command('fill <selector> <value>').description('Set a form control value').option('--trusted', 'Type via CDP Input.insertText after focusing the control').action(act('fill', ['selector', 'value']));
+  program.command('extract <selector>')
+    .description('Pull structured records from matching elements')
+    .argument('[field...]', 'field spec: text | html | textContent | value | attr:<name>')
+    .option('--limit <n>', 'Cap the number of records', (v) => Number(v))
+    .action(act('extract', ['selector', 'fields']));
+  program.command('doctor')
+    .description('Diagnostics: CDP endpoint, browser binary, memorius')
+    .action(act('doctor'));
+  program.command('ensure-browser')
+    .description('Launch a dedicated CDP browser if the endpoint is down')
+    .option('--port <n>', 'CDP debugging port', (v) => Number(v))
+    .option('--binary <path>', 'Chrome/Chromium binary to launch')
+    .option('--no-headless', 'Launch with a visible window')
+    .action(act('ensure-browser'));
+  program.command('stop-browser')
+    .description('Stop a browser started by ensure-browser (via its pidfile)')
+    .option('--port <n>', 'CDP debugging port', (v) => Number(v))
+    .action(act('stop-browser'));
   program.command('page-text').description('Print the page\'s visible text').action(act('page-text'));
   program.command('console').description('Dump captured console entries').action(act('console'));
   program.command('network').description('Dump captured network requests').action(act('network'));
