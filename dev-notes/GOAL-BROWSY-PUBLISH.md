@@ -112,5 +112,19 @@ once NPM_TOKEN is set in the repo's GitHub secrets)
 
 Remaining work (user action, not in-repo):
 - [ ] Add/refresh NPM_TOKEN in GitHub repo secrets, OR refresh ~/.npmrc
-- [ ] Push tag `v0.1.0` to trigger the release workflow
+- [x] Push tag `v0.1.0` to trigger the release workflow (DONE 2026-10-07:
+      tag pushed; workflow ran — typecheck/build/test green, `npm publish`
+      failed 401 as predicted with no NPM_TOKEN; GitHub release created
+      manually via `gh release create v0.1.0 --target main` since the
+      API rejects the new tag ref as commitish. Re-run with
+      `gh run re-run <id> --clean` once NPM_TOKEN is set.)
 - [x] Rename GitHub repo slug `browsy-plugin` -> `browsy-bot` (DONE 2026-10-07 via `gh repo rename`; remote + in-repo refs updated)
+
+Status at 2026-10-07 05:01 WAT:
+- Tag v0.1.0 pushed to origin (commit 59268be).
+- Release workflow run 37572605660: ✓typecheck ✓build ✓test, ✗publish (401, no NPM_TOKEN).
+- GitHub release v0.1.0 published (target main): https://github.com/Dream-Pixels-Forge/browsy-bot/releases/tag/v0.1.0
+- actions/checkout & setup-node bumped @v4 -> @v5 (commit 00d4c3f) to clear
+  the Node-20 deprecation warning.
+- Remaining user action: set NPM_TOKEN in repo secrets, then re-run the
+  release workflow to actually publish browsy-bot@0.1.0 to npmjs.org.
