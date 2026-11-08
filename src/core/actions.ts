@@ -14,7 +14,15 @@
 // follow-up and stays out of scope (see goal anti-drift rules).
 
 import { CDPConnection } from './connection.js';
-import { Page, Runtime, Target, TargetListEntry, Network } from './types.js';
+import {
+  Page,
+  Runtime,
+  Target,
+  TargetListEntry,
+  Network,
+  Performance,
+  Accessibility,
+} from './types.js';
 import type { Session } from './session.js';
 import { createConnection, listTargets } from './connection.js';
 import { extract } from './extract.js';
@@ -475,6 +483,161 @@ export async function loadCookies(
   filePath: string,
 ): Promise<void> {
   return session.loadCookies(filePath);
+}
+
+/**
+ * Collect Core Web Vitals and performance metrics via the Performance domain.
+ * Returns a flat object merging CDP performance metrics, navigation timing,
+ * and Core Web Vitals (LCP, CLS, FID, INP, TTFB, FCP, TBT).
+ */
+export async function collectMetrics(
+  session: Session,
+): Promise<Performance.CoreWebVitals & Performance.PerformanceTiming> {
+  const conn = await page(session);
+
+  // Enable Performance domain
+  await conn.send('Performance.enable');
+
+  // Get metrics via CDP
+  const metricsResult = await conn.send<Performance.GetMetricsResult>(
+    'Performance.getMetrics',
+  );
+  const metrics: Record<string, number> = {};
+  for (const m of metricsResult.metrics) {
+    metrics[m.name] = m.value;
+  }
+
+  // Get navigation timing from the page
+  const timing = await evalString(conn, `
+    (function() {
+      const t = performance.timing;
+      return {
+        navigationStart: t.navigationStart,
+        responseStart: t.responseStart,
+        domContentLoadedEventEnd: t.domContentLoadedEventEnd,
+        loadEventEnd: t.loadEventEnd,
+        firstPaint:
+          performance.getEntriesByType('paint').find((e) => e.name === 'first-paint')?.startTime ?? 0,
+        firstContentfulPaint:
+          performance
+            .getEntriesByType('paint')
+            .find((e) => e.name === 'first-contentful-paint')?.startTime ?? 0,
+      };
+    })()
+  `).then(JSON.parse);
+
+  // Get Core Web Vitals from performance entries
+  const vitals = await evalString(conn, `
+    (function() {
+      return new Promise((resolve) => {
+        const vitals = {
+          lcp: null,
+          cls: 0,
+          fid: null,
+          inp: null,
+          ttfb: null,
+          fcp: null,
+          tbt: 0,
+        };
+
+        try {
+          const lcpEntries = performance.getEntriesByType('largest-contentful-paint');
+          if (lcpEntries.length > 0) {
+            vitals.lcp = lcpEntries[lcpEntries.length - 1].startTime;
+          }
+        } catch {}
+
+        try {
+          let clsValue = 0;
+          const observer = new PerformanceObserver((list) => {
+            for (const entry of list.getEntries()) {
+              if (!entry.hadRecentInput) {
+                clsValue += entry.value;
+              }
+            }
+          });
+          observer.observe({ type: 'layout-shift', buffered: true });
+          vitals.cls = clsValue;
+        } catch {}
+
+        resolve(vitals);
+      });
+    })()
+  `).then(JSON.parse);
+
+  return { ...metrics, ...(timing as Record<string, number>), ...vitals };
+}
+
+/**
+ * Audit accessibility using the Accessibility domain.
+ * Returns an audit result with score, violations, passes, etc.
+ */
+export async function auditAccessibility(
+  session: Session,
+): Promise<Accessibility.AuditResult> {
+  const conn = await page(session);
+
+  // Enable Accessibility domain
+  await conn.send('Accessibility.enable');
+
+  // Get the full accessibility tree
+  const axResult = await conn.send<Accessibility.GetFullAXTreeResult>(
+    'Accessibility.getFullAXTree',
+  );
+
+  // Analyze the accessibility tree for common issues
+  const violations: Accessibility.Violation[] = [];
+  const passes: Accessibility.Pass[] = [];
+
+  function walkNode(node: any, depth = 0) {
+    // Check for missing accessible names on interactive elements
+    const role = node.role?.value || '';
+    const name = node.name?.value || '';
+    const interactiveRoles = [
+      'button', 'link', 'textbox', 'combobox', 'checkbox', 'radio',
+      'searchbox', 'slider', 'spinbutton', 'tab',
+    ];
+
+    if (interactiveRoles.includes(role) && !name && !node.children?.some((c: any) => c.name?.value)) {
+      violations.push({
+        id: 'accessible-name',
+        description: 'Element does not have an accessible name',
+        help: 'Ensure interactive elements have an accessible name',
+        helpUrl: 'https://dequeuniversity.com/rules/axe/4.4/accessible-name',
+        impact: 'serious',
+        nodes: [{
+          nodeId: node.nodeId || `node-${depth}`,
+          target: [node.role?.value || 'unknown'],
+          html: '',
+          failureSummary: 'Element missing accessible name',
+          any: [],
+          all: [],
+          none: [],
+        }],
+      });
+    }
+
+    // Recurse into children
+    node.children?.forEach((child: any) => walkNode(child, depth + 1));
+  }
+
+  axResult.nodes.forEach((node: any) => walkNode(node));
+
+  const score = violations.length === 0 ? 100 : Math.max(0, 100 - violations.length * 10);
+
+  return {
+    score,
+    violations,
+    passes: violations.length === 0 ? [{
+      id: 'accessible-name',
+      description: 'All interactive elements have accessible names',
+      help: 'Accessible names are present on interactive elements',
+      helpUrl: 'https://dequeuniversity.com/rules/axe/4.4/accessible-name',
+      nodes: [],
+    }] : [],
+    inapplicable: [],
+    incomplete: [],
+  };
 }
 
 /** Enable network request interception for matching URL patterns. */

@@ -28,6 +28,8 @@ import {
   loadCookies,
   click,
   fill,
+  collectMetrics,
+  auditAccessibility,
 } from "./core/actions.js";
 import { recall, getMemoriusShell } from "./memorius.js";
 import * as fs from "fs";
@@ -417,6 +419,42 @@ export function createBrowsyServer(): McpServer {
           default:
             throw new Error(`Unknown cookies action: ${args.action}`);
         }
+      }),
+  );
+
+  server.registerTool(
+    "browsy_collect-metrics",
+    {
+      description:
+        "Collect Core Web Vitals and performance metrics via the CDP Performance domain.",
+      inputSchema: {
+        ...addressSchema,
+      },
+    },
+    async (args) =>
+      run(async () => {
+        const url = args.browserUrl ?? DEFAULT_BROWSER_URL;
+        const session = await getSession(url, { targetId: args.targetId });
+        const result = await collectMetrics(session);
+        return result;
+      }),
+  );
+
+  server.registerTool(
+    "browsy_audit-accessibility",
+    {
+      description:
+        "Run an accessibility audit using the CDP Accessibility domain.",
+      inputSchema: {
+        ...addressSchema,
+      },
+    },
+    async (args) =>
+      run(async () => {
+        const url = args.browserUrl ?? DEFAULT_BROWSER_URL;
+        const session = await getSession(url, { targetId: args.targetId });
+        const result = await auditAccessibility(session);
+        return result;
       }),
   );
 
