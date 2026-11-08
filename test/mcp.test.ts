@@ -61,10 +61,11 @@ const EXPECTED_TOOLS = [
   "browsy_recall",
   "browsy_switch_tab",
   "browsy_broadcast",
+  "browsy_cookies",
 ];
 
 describe("browsy MCP server (in-process)", () => {
-  it("lists all 9 browsy tools to an MCP client", async () => {
+  it("lists all 10 browsy tools to an MCP client", async () => {
     const server = createBrowsyServer();
     const client = new Client({ name: "test-client", version: "0.0.0" });
     const [serverTransport, clientTransport] =

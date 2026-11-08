@@ -21,6 +21,11 @@ import {
   listTabs as sessionListTabs,
   switchTab,
   foreachTab,
+  getCookies,
+  setCookie,
+  deleteCookie,
+  saveCookies,
+  loadCookies,
   click,
   fill,
 } from "./core/actions.js";
@@ -345,6 +350,73 @@ export function createBrowsyServer(): McpServer {
         const url = args.browserUrl ?? DEFAULT_BROWSER_URL;
         const session = await getSession(url, { targetId: args.targetId });
         return session.captureNetwork();
+      }),
+  );
+
+  server.registerTool(
+    "browsy_cookies",
+    {
+      description:
+        "Manage cookies: get, set, delete, save, load. Uses CDP Network domain.",
+      inputSchema: {
+        action: z
+          .enum(["get", "set", "delete", "save", "load"])
+          .describe("Cookie operation to perform."),
+        name: z.string().optional().describe("Cookie name (for set/delete)."),
+        value: z.string().optional().describe("Cookie value (for set)."),
+        domain: z.string().optional().describe("Cookie domain."),
+        path: z.string().optional().describe("Cookie path."),
+        secure: z.boolean().optional().describe("Secure flag."),
+        httpOnly: z.boolean().optional().describe("HttpOnly flag."),
+        sameSite: z.enum(["Strict", "Lax", "None"]).optional().describe("SameSite policy."),
+        expires: z.number().optional().describe("Expiration timestamp (Unix seconds)."),
+        urls: z.array(z.string()).optional().describe("URLs to filter cookies (for get)."),
+        file: z.string().optional().describe("File path (for save/load)."),
+        ...addressSchema,
+      },
+    },
+    async (args) =>
+      run(async () => {
+        const url = args.browserUrl ?? DEFAULT_BROWSER_URL;
+        const session = await getSession(url, { targetId: args.targetId });
+
+        switch (args.action) {
+          case "get": {
+            const cookies = await getCookies(session, args.urls);
+            return { count: cookies.length, cookies };
+          }
+          case "set": {
+            if (!args.name || !args.value) throw new Error("cookies set requires name and value");
+            const result = await setCookie(session, {
+              name: args.name,
+              value: args.value,
+              domain: args.domain,
+              path: args.path,
+              secure: args.secure,
+              httpOnly: args.httpOnly,
+              sameSite: args.sameSite,
+              expires: args.expires,
+            });
+            return { success: result.success };
+          }
+          case "delete": {
+            if (!args.name) throw new Error("cookies delete requires name");
+            await deleteCookie(session, { name: args.name });
+            return { deleted: args.name };
+          }
+          case "save": {
+            if (!args.file) throw new Error("cookies save requires file");
+            await saveCookies(session, args.file);
+            return { savedTo: args.file };
+          }
+          case "load": {
+            if (!args.file) throw new Error("cookies load requires file");
+            await loadCookies(session, args.file);
+            return { loadedFrom: args.file };
+          }
+          default:
+            throw new Error(`Unknown cookies action: ${args.action}`);
+        }
       }),
   );
 

@@ -55,6 +55,29 @@ export interface Session {
    */
   foreachTab<T>(fn: (session: Session, targetId: string) => Promise<T>): Promise<T[]>;
   /**
+   * Get all cookies for the current page (or optionally filter by URLs).
+   * Uses CDP Network.getCookies.
+   */
+  getCookies(urls?: string[]): Promise<Network.Cookie[]>;
+  /**
+   * Set a cookie for the current page.
+   * Uses CDP Network.setCookie.
+   */
+  setCookie(params: Network.SetCookieParams): Promise<Network.SetCookieResult>;
+  /**
+   * Delete a cookie by name.
+   * Uses CDP Network.deleteCookies.
+   */
+  deleteCookie(params: Network.DeleteCookiesParams): Promise<void>;
+  /**
+   * Save all cookies to a JSON file.
+   */
+  saveCookies(filePath: string): Promise<void>;
+  /**
+   * Load cookies from a JSON file and set them in the browser.
+   */
+  loadCookies(filePath: string): Promise<void>;
+  /**
    * Enable network request interception for matching URL patterns.
    * Uses CDP Fetch domain for interception.
    */
@@ -320,6 +343,50 @@ class SessionImpl implements Session {
     }
     
     return results;
+  }
+
+  async getCookies(urls?: string[]): Promise<Network.Cookie[]> {
+    const browser = await this.browser();
+    const result = await browser.send<Network.GetCookiesResult>('Network.getCookies', { urls });
+    return result.cookies ?? [];
+  }
+
+  async setCookie(params: Network.SetCookieParams): Promise<Network.SetCookieResult> {
+    const browser = await this.browser();
+    return browser.send<Network.SetCookieResult>('Network.setCookie', params);
+  }
+
+  async deleteCookie(params: Network.DeleteCookiesParams): Promise<void> {
+    const browser = await this.browser();
+    await browser.send('Network.deleteCookies', params);
+  }
+
+  async saveCookies(filePath: string): Promise<void> {
+    const cookies = await this.getCookies();
+    const fs = await import('fs');
+    const path = await import('path');
+    const dir = path.dirname(filePath);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(filePath, JSON.stringify(cookies, null, 2));
+  }
+
+  async loadCookies(filePath: string): Promise<void> {
+    const fs = await import('fs');
+    const content = fs.readFileSync(filePath, 'utf-8');
+    const cookies: Network.Cookie[] = JSON.parse(content);
+    const browser = await this.browser();
+    for (const cookie of cookies) {
+      await browser.send('Network.setCookie', {
+        name: cookie.name,
+        value: cookie.value,
+        domain: cookie.domain,
+        path: cookie.path,
+        secure: cookie.secure,
+        httpOnly: cookie.httpOnly,
+        sameSite: cookie.sameSite,
+        expires: cookie.expires,
+      });
+    }
   }
 
   captureConsole(): ConsoleEntry[] {
