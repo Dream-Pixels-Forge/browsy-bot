@@ -346,6 +346,8 @@ export namespace Network {
     hasPostData: boolean;
     resourceType: string;
     priority: string;
+  }
+
   export interface SetRequestInterceptionParams {
     patterns: RequestPattern[];
   }

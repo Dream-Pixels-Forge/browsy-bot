@@ -476,7 +476,6 @@ export async function runCommand(
       });
       return { ok: true, data: { interceptionId, action }, message: `Request ${interceptionId} ${action}ed` };
     }
-    }
 
     default:
       throw new CliUsageError(`Unknown command: ${name}`);
