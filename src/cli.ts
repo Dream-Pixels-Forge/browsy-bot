@@ -52,6 +52,8 @@ import {
   fullPageScreenshot,
   navigatePage,
   listTabs as sessionListTabs,
+  switchTab,
+  foreachTab,
 } from './core/actions.js';
 import { startMcpServer } from './mcp.js';
 import { extract } from './core/extract.js';
@@ -198,6 +200,41 @@ export async function runCommand(
       const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
       await session.closeTab(id);
       return { ok: true, data: { targetId: id }, message: `Closed tab ${id}` };
+    }
+
+    case 'switch-tab': {
+      const id = String(args.id ?? '');
+      if (!id) throw new CliUsageError('switch-tab requires a target id');
+      const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
+      await switchTab(session, id);
+      return { ok: true, data: { targetId: id }, message: `Switched to tab ${id}` };
+    }
+
+    case 'broadcast': {
+      const selector = String(args.selector ?? '');
+      const action = String(args.action ?? '');
+      if (!selector) throw new CliUsageError('broadcast requires a selector');
+      if (!action) throw new CliUsageError('broadcast requires an action (click, fill, eval)');
+      if (action === 'fill') {
+        const value = String(args.value ?? '');
+        if (!value) throw new CliUsageError('broadcast fill requires a value');
+      }
+      const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
+      const results = await foreachTab(session, async (s, targetId) => {
+        switch (action) {
+          case 'click':
+            return { targetId, result: await click(s, selector, { trusted: Boolean(args.trusted) }) };
+          case 'fill':
+            return { targetId, result: await fill(s, selector, String(args.value ?? ''), { trusted: Boolean(args.trusted) }) };
+          case 'eval':
+            const expr = String(args.expression ?? '');
+            if (!expr) throw new CliUsageError('broadcast eval requires an expression');
+            return { targetId, result: await s.page().then(c => c.send('Runtime.evaluate', { expression: expr, returnByValue: true })) };
+          default:
+            throw new CliUsageError(`Unknown broadcast action: ${action}. Use click, fill, or eval`);
+        }
+      });
+      return { ok: true, data: results, message: `Broadcast ${action} to ${results.length} tab${results.length === 1 ? '' : 's'}` };
     }
 
     case 'extract': {
@@ -387,9 +424,11 @@ function buildProgram(): Command {
   program.command('page-text').description('Print the page\'s visible text').action(act('page-text'));
   program.command('console').description('Dump captured console entries').action(act('console'));
   program.command('network').description('Dump captured network requests').action(act('network'));
-  program.command('tabs').description('List open tabs').action(act('tabs'));
+  program.command('tabs').description('List open tabs').option('--switch <id>', 'Switch the active target to this tab').action(act('tabs'));
   program.command('new-tab [url]').description('Open a new tab').action(act('new-tab', ['url']));
   program.command('close-tab <id>').description('Close a tab').action(act('close-tab', ['id']));
+  program.command('switch-tab <id>').description('Switch the active target to a specific tab').action(act('switch-tab', ['id']));
+  program.command('broadcast <selector> <action>').description('Run an action (click, fill, eval) across all tabs').argument('[value]', 'Value for fill action').option('--trusted', 'Use renderer-trusted CDP input events').option('-e, --expression <expr>', 'JavaScript expression for eval action').action(act('broadcast', ['selector', 'action', 'value']));
 
   // MCP server — runs the stdio transport directly.
   program

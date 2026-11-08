@@ -45,6 +45,16 @@ export interface Session {
   /** Close a tab by target id. */
   closeTab(targetId: string): Promise<void>;
   /**
+   * Switch the session's active page target to another tab.
+   * Subsequent calls to page() will connect to the new target.
+   */
+  switchTab(targetId: string): Promise<void>;
+  /**
+   * Iterate over all page tabs and run `fn(session, targetId)` for each.
+   * Each iteration gets a fresh page connection to that tab.
+   */
+  foreachTab<T>(fn: (session: Session, targetId: string) => Promise<T>): Promise<T[]>;
+  /**
    * Console messages captured since the session started capturing.
    * Starts capturing immediately (enable is idempotent, once per socket).
    */
@@ -254,6 +264,48 @@ class SessionImpl implements Session {
   async closeTab(targetId: string): Promise<void> {
     const browser = await this.browser();
     await browser.send('Target.closeTarget', { targetId });
+  }
+
+  async switchTab(targetId: string): Promise<void> {
+    // Close the current page connection if it exists
+    if (this.cachedPage) {
+      await this.cachedPage.close().catch(() => {});
+      this.cachedPage = null;
+    }
+    // Update the targetId by creating a new SessionImpl with the new targetId
+    // We need to drop the old session from cache and create a new one
+    // But since targetId is readonly, we'll just update the cached page connection
+    // The getSession cache uses (browserUrl, targetId) as key, so we need to
+    // remove the old key and add the new one
+    const oldKey = `${this.browserUrl}\u0000${this.targetId ?? ''}`;
+    sessionCache.delete(oldKey);
+    
+    // Update the targetId (we'll use a private property to track it)
+    // Since targetId is readonly in the interface, we cast away readonly for internal use
+    (this as any).targetId = targetId;
+    
+    // Create new page connection for the new target
+    this.cachedPage = await getPageConnection(this.browserUrl, targetId);
+    await this.enableDomains();
+  }
+
+  async foreachTab<T>(fn: (session: Session, targetId: string) => Promise<T>): Promise<T[]> {
+    const targets = await this.listTabs();
+    const pageTargets = targets.filter((t) => t.type === 'page');
+    const results: T[] = [];
+    
+    for (const target of pageTargets) {
+      // Create a temporary session for this tab
+      const tempSession = new SessionImpl(this.browserUrl, target.id);
+      try {
+        const result = await fn(tempSession, target.id);
+        results.push(result);
+      } finally {
+        await tempSession.closeAll();
+      }
+    }
+    
+    return results;
   }
 
   captureConsole(): ConsoleEntry[] {

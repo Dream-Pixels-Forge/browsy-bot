@@ -368,6 +368,22 @@ export async function closeTab(
   await session.closeTab(targetId);
 }
 
+/** Switch the session's active page target to another tab. */
+export async function switchTab(
+  session: Session,
+  targetId: string,
+): Promise<void> {
+  await session.switchTab(targetId);
+}
+
+/** Iterate over all page tabs and run `fn(session, targetId)` for each. */
+export async function foreachTab<T>(
+  session: Session,
+  fn: (session: Session, targetId: string) => Promise<T>,
+): Promise<T[]> {
+  return session.foreachTab(fn);
+}
+
 // Re-exported for adapters that prefer a connection-only shape.
 export { createConnection, listTargets };
 export type { Target, TargetListEntry, Runtime, Page };
