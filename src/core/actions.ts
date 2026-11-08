@@ -17,6 +17,7 @@ import { CDPConnection } from './connection.js';
 import { Page, Runtime, Target, TargetListEntry, Network } from './types.js';
 import type { Session } from './session.js';
 import { createConnection, listTargets } from './connection.js';
+import { extract } from './extract.js';
 
 type Conn = CDPConnection;
 
@@ -507,6 +508,189 @@ export async function continueInterceptedRequest(
   },
 ): Promise<void> {
   return session.continueInterceptedRequest(interceptionId, action, options);
+}
+
+/**
+ * Declarative script execution.
+ * Runs a sequence of browser actions defined in a script object.
+ */
+export interface ScriptStep {
+  action: 'navigate' | 'click' | 'fill' | 'screenshot' | 'extract' | 'wait' | 'assert' | 'eval' | 'new-tab' | 'switch-tab' | 'close-tab' | 'sleep';
+  selector?: string;
+  value?: string;
+  url?: string;
+  expression?: string;
+  fields?: string[];
+  limit?: number;
+  output?: string;
+  timeoutMs?: number;
+  intervalMs?: number;
+  trusted?: boolean;
+  fallbacks?: string[];
+  targetId?: string;
+  ms?: number;
+  fullPage?: boolean;
+  format?: 'png' | 'jpeg';
+  quality?: number;
+}
+
+export interface ScriptResult {
+  step: number;
+  action: string;
+  ok: boolean;
+  data?: unknown;
+  error?: string;
+  durationMs: number;
+}
+
+export async function runScript(
+  session: Session,
+  steps: ScriptStep[],
+  options?: { variables?: Record<string, string>; onStep?: (result: ScriptResult) => void },
+): Promise<ScriptResult[]> {
+  const variables = options?.variables ?? {};
+  const results: ScriptResult[] = [];
+
+  function resolveVars(str: string): string {
+    return str.replace(/\$\{(\w+)\}/g, (_, key) => variables[key] ?? '');
+  }
+
+  for (let i = 0; i < steps.length; i++) {
+    const step = steps[i];
+    const startTime = Date.now();
+    let result: ScriptResult;
+
+    try {
+      switch (step.action) {
+        case 'navigate': {
+          if (!step.url) throw new Error('navigate requires url');
+          await navigatePage(session, resolveVars(step.url));
+          result = { step: i, action: 'navigate', ok: true, data: { url: step.url }, durationMs: Date.now() - startTime };
+          break;
+        }
+        case 'click': {
+          if (!step.selector) throw new Error('click requires selector');
+          const clicked = await click(session, resolveVars(step.selector), {
+            trusted: step.trusted,
+            fallbacks: step.fallbacks,
+          });
+          result = { step: i, action: 'click', ok: clicked, data: { selector: step.selector, clicked }, durationMs: Date.now() - startTime };
+          break;
+        }
+        case 'fill': {
+          if (!step.selector) throw new Error('fill requires selector');
+          if (!step.value) throw new Error('fill requires value');
+          const filled = await fill(session, resolveVars(step.selector), resolveVars(step.value), {
+            trusted: step.trusted,
+            fallbacks: step.fallbacks,
+          });
+          result = { step: i, action: 'fill', ok: filled, data: { selector: step.selector, filled }, durationMs: Date.now() - startTime };
+          break;
+        }
+        case 'screenshot': {
+          const options = {
+            format: step.format ?? 'png',
+            quality: step.quality,
+          };
+          const data = step.fullPage
+            ? await fullPageScreenshot(session, options)
+            : await screenshot(session, options);
+          if (step.output) {
+            const fs = await import('fs');
+            const path = await import('path');
+            const out = path.isAbsolute(step.output) ? step.output : path.join(process.cwd(), step.output);
+            fs.writeFileSync(out, Buffer.from(data, 'base64'));
+            result = { step: i, action: 'screenshot', ok: true, data: { savedTo: out }, durationMs: Date.now() - startTime };
+          } else {
+            result = { step: i, action: 'screenshot', ok: true, data: { base64: data, format: options.format }, durationMs: Date.now() - startTime };
+          }
+          break;
+        }
+        case 'extract': {
+          if (!step.selector) throw new Error('extract requires selector');
+          if (!step.fields) throw new Error('extract requires fields');
+          const records = await extract(session, step.selector, step.fields, { limit: step.limit });
+          result = { step: i, action: 'extract', ok: true, data: records, durationMs: Date.now() - startTime };
+          break;
+        }
+        case 'wait': {
+          if (!step.selector) throw new Error('wait requires selector');
+          await waitForSelector(session, step.selector, {
+            timeoutMs: step.timeoutMs ?? 10000,
+            intervalMs: step.intervalMs ?? 100,
+            fallbacks: step.fallbacks,
+          });
+          result = { step: i, action: 'wait', ok: true, data: { selector: step.selector }, durationMs: Date.now() - startTime };
+          break;
+        }
+        case 'assert': {
+          if (!step.selector) throw new Error('assert requires selector');
+          const conn = await session.page();
+          const found = await evalString(conn, `document.querySelector(${quoteJs(step.selector)}) ? '1' : '0'`);
+          if (found !== '1') {
+            throw new Error(`Assertion failed: selector "${step.selector}" not found`);
+          }
+          result = { step: i, action: 'assert', ok: true, data: { selector: step.selector }, durationMs: Date.now() - startTime };
+          break;
+        }
+        case 'eval': {
+          if (!step.expression) throw new Error('eval requires expression');
+          const conn = await session.page();
+          const evalResult = await conn.send<{ result?: { value?: unknown }; exceptionDetails?: unknown }>(
+            'Runtime.evaluate',
+            { expression: step.expression, returnByValue: true },
+          );
+          if (evalResult.exceptionDetails) {
+            throw new Error('eval: page JS threw');
+          }
+          result = { step: i, action: 'eval', ok: true, data: evalResult.result?.value, durationMs: Date.now() - startTime };
+          break;
+        }
+        case 'new-tab': {
+          const targetId = await session.newTab(step.url);
+          result = { step: i, action: 'new-tab', ok: true, data: { targetId, url: step.url ?? 'about:blank' }, durationMs: Date.now() - startTime };
+          break;
+        }
+        case 'switch-tab': {
+          if (!step.targetId) throw new Error('switch-tab requires targetId');
+          await switchTab(session, step.targetId);
+          result = { step: i, action: 'switch-tab', ok: true, data: { targetId: step.targetId }, durationMs: Date.now() - startTime };
+          break;
+        }
+        case 'close-tab': {
+          if (!step.targetId) throw new Error('close-tab requires targetId');
+          await session.closeTab(step.targetId);
+          result = { step: i, action: 'close-tab', ok: true, data: { targetId: step.targetId }, durationMs: Date.now() - startTime };
+          break;
+        }
+        case 'sleep': {
+          await new Promise((r) => setTimeout(r, step.ms ?? 1000));
+          result = { step: i, action: 'sleep', ok: true, data: { ms: step.ms }, durationMs: Date.now() - startTime };
+          break;
+        }
+        default:
+          throw new Error(`Unknown action: ${step.action}`);
+      }
+    } catch (e) {
+      result = {
+        step: i,
+        action: step.action,
+        ok: false,
+        error: e instanceof Error ? e.message : String(e),
+        durationMs: Date.now() - startTime,
+      };
+    }
+
+    results.push(result);
+    options?.onStep?.(result);
+
+    if (!result.ok) {
+      // Stop on first failure unless it's a sleep
+      if (step.action !== 'sleep') break;
+    }
+  }
+
+  return results;
 }
 
 // Re-exported for adapters that prefer a connection-only shape.

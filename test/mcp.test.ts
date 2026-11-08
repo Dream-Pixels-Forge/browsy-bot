@@ -1,6 +1,6 @@
 // In-process MCP smoke test: a real MCP Client talks to the real browsy
 // server over an in-memory transport pair. The CDP layer is mocked so no
-// Chrome is needed. Verifies: (1) the client sees all 9 browsy tools via
+// Chrome is needed. Verifies: (1) the client sees all 10 browsy tools via
 // tools/list, and (2) tools/call returns structured text for a couple of
 // the tools.
 import { describe, it, expect, vi } from "vitest";

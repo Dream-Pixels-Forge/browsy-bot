@@ -45,8 +45,10 @@
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.32.1",
     "@opencode-ai/plugin": "^1.18.5",
+    "@types/js-yaml": "^4.0.9",
     "commander": "^12.1.0",
     "dotenv": "^16.4.5",
+    "js-yaml": "^5.5.0",
     "ws": "^8.17.0"
   },
   "devDependencies": {

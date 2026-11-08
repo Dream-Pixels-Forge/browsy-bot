@@ -389,20 +389,6 @@ class SessionImpl implements Session {
     }
   }
 
-  captureConsole(): ConsoleEntry[] {
-    const page = this.cachedPage;
-    if (page) ensureConsoleCapturing(this.browserUrl, page);
-    const tracker = consoleTrackers.get(trackerKey(this.browserUrl, this.targetId, 'console'));
-    return tracker ? tracker.entries.slice() : [];
-  }
-
-  captureNetwork(): NetworkEntry[] {
-    const page = this.cachedPage;
-    if (page) ensureNetworkCapturing(this.browserUrl, page);
-    const tracker = networkTrackers.get(trackerKey(this.browserUrl, this.targetId, 'network'));
-    return tracker ? [...tracker.entries.values()] : [];
-  }
-
   async interceptNetwork(patterns: Network.RequestPattern[]): Promise<void> {
     const page = await this.page();
     // Enable Fetch domain for request interception
@@ -473,6 +459,20 @@ class SessionImpl implements Session {
         ? Object.entries(options.headers).map(([name, value]) => ({ name, value }))
         : undefined,
     });
+  }
+
+  captureConsole(): ConsoleEntry[] {
+    const page = this.cachedPage;
+    if (page) ensureConsoleCapturing(this.browserUrl, page);
+    const tracker = consoleTrackers.get(trackerKey(this.browserUrl, this.targetId, 'console'));
+    return tracker ? tracker.entries.slice() : [];
+  }
+
+  captureNetwork(): NetworkEntry[] {
+    const page = this.cachedPage;
+    if (page) ensureNetworkCapturing(this.browserUrl, page);
+    const tracker = networkTrackers.get(trackerKey(this.browserUrl, this.targetId, 'network'));
+    return tracker ? [...tracker.entries.values()] : [];
   }
 
   async closeAll(): Promise<void> {

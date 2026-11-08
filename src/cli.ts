@@ -57,6 +57,8 @@ import {
   interceptNetwork,
   mockResponse,
   continueInterceptedRequest,
+  runScript,
+  ScriptStep,
   getCookies,
   setCookie,
   deleteCookie,
@@ -418,6 +420,29 @@ export async function runCommand(
       };
     }
 
+    case 'run': {
+      const scriptFile = String(args.script ?? '');
+      if (!scriptFile) throw new CliUsageError('run requires a script file');
+      const fs = await import('fs');
+      const path = await import('path');
+      const scriptPath = path.isAbsolute(scriptFile) ? scriptFile : path.join(process.cwd(), scriptFile);
+      if (!fs.existsSync(scriptPath)) throw new CliUsageError(`Script file not found: ${scriptPath}`);
+      const scriptContent = fs.readFileSync(scriptPath, 'utf-8');
+      let steps: ScriptStep[];
+      if (scriptPath.endsWith('.json')) {
+        steps = JSON.parse(scriptContent);
+      } else if (scriptPath.endsWith('.yaml') || scriptPath.endsWith('.yml')) {
+        const yaml = await import('js-yaml');
+        steps = yaml.load(scriptContent) as ScriptStep[];
+      } else {
+        throw new CliUsageError('Script file must be .json or .yaml/.yml');
+      }
+      const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
+      const results = await runScript(session, steps);
+      const failed = results.find(r => !r.ok);
+      return { ok: !failed, data: results, message: failed ? `Script failed at step ${failed.step}: ${failed.error}` : `Script completed: ${results.length} steps` };
+    }
+
     case 'intercept': {
       const pattern = String(args.pattern ?? '');
       if (!pattern) throw new CliUsageError('intercept requires --pattern');
@@ -571,6 +596,9 @@ function buildProgram(): Command {
     .option('--limit <n>', 'Cap the number of records', (v) => Number(v))
     .option('--fallback <selectors>', 'Comma-separated fallback selectors to try if primary matches nothing')
     .action(act('extract', ['selector', 'fields']));
+  program.command('run <script>')
+    .description('Run a declarative browser automation script (JSON or YAML)')
+    .action(act('run', ['script']));
   program.command('heal <selector>')
     .description('Diagnose why a selector failed and suggest alternatives from the page DOM')
     .option('--url <url>', 'URL to test against (defaults to current page)')
