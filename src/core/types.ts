@@ -342,6 +342,44 @@ export namespace Network {
       contentType?: string;
     };
   }
+
+  export interface Cookie {
+    name: string;
+    value: string;
+    domain?: string;
+    path?: string;
+    secure?: boolean;
+    httpOnly?: boolean;
+    sameSite?: 'Strict' | 'Lax' | 'None';
+    expires?: number;
+    size?: number;
+    priority?: 'Low' | 'Medium' | 'High';
+  }
+
+  export interface GetCookiesResult {
+    cookies: Cookie[];
+  }
+
+  export interface SetCookieParams {
+    name: string;
+    value: string;
+    domain?: string;
+    path?: string;
+    secure?: boolean;
+    httpOnly?: boolean;
+    sameSite?: 'Strict' | 'Lax' | 'None';
+    expires?: number;
+  }
+
+  export interface SetCookieResult {
+    success: boolean;
+  }
+
+  export interface DeleteCookiesParams {
+    name: string;
+    domain?: string;
+    path?: string;
+  }
 }
 
 // Fetch Domain (for more advanced interception)
