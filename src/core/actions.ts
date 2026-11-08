@@ -14,7 +14,7 @@
 // follow-up and stays out of scope (see goal anti-drift rules).
 
 import { CDPConnection } from './connection.js';
-import { Page, Runtime, Target, TargetListEntry } from './types.js';
+import { Page, Runtime, Target, TargetListEntry, Network } from './types.js';
 import type { Session } from './session.js';
 import { createConnection, listTargets } from './connection.js';
 
@@ -434,6 +434,39 @@ export async function foreachTab<T>(
   fn: (session: Session, targetId: string) => Promise<T>,
 ): Promise<T[]> {
   return session.foreachTab(fn);
+}
+
+/** Enable network request interception for matching URL patterns. */
+export async function interceptNetwork(
+  session: Session,
+  patterns: Network.RequestPattern[],
+): Promise<void> {
+  return session.interceptNetwork(patterns);
+}
+
+/** Mock a response for matching URL pattern. */
+export async function mockResponse(
+  session: Session,
+  pattern: string,
+  response: { status: number; headers?: Record<string, string>; body?: string; contentType?: string },
+): Promise<void> {
+  return session.mockResponse(pattern, response);
+}
+
+/** Handle an intercepted request. */
+export async function continueInterceptedRequest(
+  session: Session,
+  interceptionId: string,
+  action: 'continue' | 'mock' | 'fail',
+  options?: {
+    url?: string;
+    method?: string;
+    postData?: string;
+    headers?: Record<string, string>;
+    response?: { status: number; headers?: Record<string, string>; body?: string; contentType?: string };
+  },
+): Promise<void> {
+  return session.continueInterceptedRequest(interceptionId, action, options);
 }
 
 // Re-exported for adapters that prefer a connection-only shape.

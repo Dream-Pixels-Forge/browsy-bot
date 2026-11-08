@@ -276,6 +276,129 @@ export interface NetworkEntry {
   resourceType?: string;
 }
 
+// Network Domain - Interception
+export namespace Network {
+  export interface RequestPattern {
+    urlPattern: string;
+    resourceType?: string;
+    requestStage?: 'Request' | 'Response';
+  }
+
+  export interface SetRequestInterceptionParams {
+    patterns: RequestPattern[];
+  }
+
+  export interface RequestInterceptedEvent {
+    interceptionId: string;
+    request: Request;
+    frameId: string;
+    resourceType: string;
+    isNavigationRequest: boolean;
+    redirectUrl?: string;
+    authChallenge?: AuthChallenge;
+    responseErrorReason?: string;
+    responseStatusCode?: number;
+    responseHeaders?: Record<string, string>;
+  }
+
+  export interface Request {
+    requestId: string;
+    loaderId: string;
+    documentURL: string;
+    url: string;
+    method: string;
+    headers: Record<string, string>;
+    postData?: string;
+    hasPostData: boolean;
+    resourceType: string;
+    priority: string;
+  }
+
+  export interface AuthChallenge {
+    source: 'Server' | 'Proxy';
+    origin: string;
+    scheme: string;
+    realm?: string;
+  }
+
+  export interface ContinueInterceptedRequestParams {
+    interceptionId: string;
+    errorReason?: 'Failed' | 'Aborted' | 'TimedOut' | 'AccessDenied' | 'ConnectionClosed' | 'ConnectionReset' | 'ConnectionRefused' | 'ConnectionAborted' | 'ConnectionFailed' | 'NameNotResolved' | 'InternetDisconnected' | 'AddressUnreachable' | 'BlockedByClient' | 'BlockedByResponse';
+    rawResponse?: string;
+    url?: string;
+    method?: string;
+    postData?: string;
+    headers?: Record<string, string>;
+  }
+
+  export interface ContinueInterceptedRequestResult {}
+
+  export interface SetResponseOverrideParams {
+    urlPattern: string;
+    response: {
+      status: number;
+      headers?: Record<string, string>;
+      body?: string;
+      contentType?: string;
+    };
+  }
+}
+
+// Fetch Domain (for more advanced interception)
+export namespace Fetch {
+  export interface RequestPattern {
+    urlPattern: string;
+    requestStage?: 'Request' | 'Response';
+    resourceType?: string;
+  }
+
+  export interface EnableParams {
+    patterns?: RequestPattern[];
+    handleAuthRequests?: boolean;
+  }
+
+  export interface RequestPausedEvent {
+    requestId: string;
+    request: Network.Request;
+    frameId: string;
+    resourceType: string;
+    responseErrorReason?: string;
+    responseStatusCode?: number;
+    responseHeaders?: Record<string, string>;
+    interceptionId?: string;
+  }
+
+  export interface FailRequestParams {
+    requestId: string;
+    errorReason: 'Failed' | 'Aborted' | 'TimedOut' | 'AccessDenied' | 'ConnectionClosed' | 'ConnectionReset' | 'ConnectionRefused' | 'ConnectionAborted' | 'ConnectionFailed' | 'NameNotResolved' | 'InternetDisconnected' | 'AddressUnreachable' | 'BlockedByClient' | 'BlockedByResponse';
+  }
+
+  export interface FulfillRequestParams {
+    requestId: string;
+    responseCode: number;
+    responseHeaders?: Array<{ name: string; value: string }>;
+    body?: string;
+    responsePhrase?: string;
+  }
+
+  export interface ContinueRequestParams {
+    requestId: string;
+    url?: string;
+    method?: string;
+    postData?: string;
+    headers?: Array<{ name: string; value: string }>;
+  }
+
+  export interface ContinueWithAuthParams {
+    requestId: string;
+    authChallengeResponse: {
+      response: 'Default' | 'CancelAuth' | 'ProvideCredentials';
+      username?: string;
+      password?: string;
+    };
+  }
+}
+
 // Generic CDP Domain Handler
 export interface CDPDomain {
   handleMessage(message: CDPMessage): void;

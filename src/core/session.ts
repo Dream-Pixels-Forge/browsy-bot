@@ -25,7 +25,7 @@ import {
   listTargets,
   resolveWsUrl,
 } from './connection.js';
-import { ConsoleEntry, NetworkEntry, Target, TargetListEntry } from './types.js';
+import { ConsoleEntry, NetworkEntry, Network, Target, TargetListEntry } from './types.js';
 
 type PageConnection = CDPConnection & { targetId?: string };
 
@@ -54,6 +54,20 @@ export interface Session {
    * Each iteration gets a fresh page connection to that tab.
    */
   foreachTab<T>(fn: (session: Session, targetId: string) => Promise<T>): Promise<T[]>;
+  /**
+   * Enable network request interception for matching URL patterns.
+   * Uses CDP Fetch domain for interception.
+   */
+  interceptNetwork(patterns: Network.RequestPattern[]): Promise<void>;
+  /**
+   * Mock a response for matching URL pattern.
+   * Uses CDP Network.setResponseOverride for simpler mocking.
+   */
+  mockResponse(pattern: string, response: { status: number; headers?: Record<string, string>; body?: string; contentType?: string }): Promise<void>;
+  /**
+   * Handle an intercepted request - continue, mock, or fail.
+   */
+  continueInterceptedRequest(interceptionId: string, action: 'continue' | 'mock' | 'fail', options?: { url?: string; method?: string; postData?: string; headers?: Record<string, string>; response?: { status: number; headers?: Record<string, string>; body?: string; contentType?: string } }): Promise<void>;
   /**
    * Console messages captured since the session started capturing.
    * Starts capturing immediately (enable is idempotent, once per socket).
@@ -320,6 +334,78 @@ class SessionImpl implements Session {
     if (page) ensureNetworkCapturing(this.browserUrl, page);
     const tracker = networkTrackers.get(trackerKey(this.browserUrl, this.targetId, 'network'));
     return tracker ? [...tracker.entries.values()] : [];
+  }
+
+  async interceptNetwork(patterns: Network.RequestPattern[]): Promise<void> {
+    const page = await this.page();
+    // Enable Fetch domain for request interception
+    await page.send('Fetch.enable', {
+      patterns: patterns.map(p => ({
+        urlPattern: p.urlPattern,
+        requestStage: p.requestStage,
+        resourceType: p.resourceType,
+      })),
+      handleAuthRequests: false,
+    });
+  }
+
+  async mockResponse(pattern: string, response: { status: number; headers?: Record<string, string>; body?: string; contentType?: string }): Promise<void> {
+    const browser = await this.browser();
+    await browser.send('Network.setResponseOverride', {
+      urlPattern: pattern,
+      response: {
+        status: response.status,
+        headers: response.headers,
+        body: response.body,
+        contentType: response.contentType,
+      },
+    });
+  }
+
+  async continueInterceptedRequest(
+    interceptionId: string,
+    action: 'continue' | 'mock' | 'fail',
+    options?: {
+      url?: string;
+      method?: string;
+      postData?: string;
+      headers?: Record<string, string>;
+      response?: { status: number; headers?: Record<string, string>; body?: string; contentType?: string };
+    }
+  ): Promise<void> {
+    const page = await this.page();
+    
+    if (action === 'fail') {
+      await page.send('Fetch.failRequest', {
+        requestId: interceptionId,
+        errorReason: 'BlockedByClient',
+      });
+      return;
+    }
+
+    if (action === 'mock' && options?.response) {
+      await page.send('Fetch.fulfillRequest', {
+        requestId: interceptionId,
+        responseCode: options.response.status,
+        responseHeaders: options.response.headers
+          ? Object.entries(options.response.headers).map(([name, value]) => ({ name, value }))
+          : [],
+        body: options.response.body,
+        responsePhrase: 'OK',
+      });
+      return;
+    }
+
+    // Continue with optional modifications
+    await page.send('Fetch.continueRequest', {
+      requestId: interceptionId,
+      url: options?.url,
+      method: options?.method,
+      postData: options?.postData,
+      headers: options?.headers
+        ? Object.entries(options.headers).map(([name, value]) => ({ name, value }))
+        : undefined,
+    });
   }
 
   async closeAll(): Promise<void> {

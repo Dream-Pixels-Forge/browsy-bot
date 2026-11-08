@@ -54,6 +54,9 @@ import {
   listTabs as sessionListTabs,
   switchTab,
   foreachTab,
+  interceptNetwork,
+  mockResponse,
+  continueInterceptedRequest,
 } from './core/actions.js';
 import { startMcpServer } from './mcp.js';
 import { extract } from './core/extract.js';
@@ -359,6 +362,40 @@ export async function runCommand(
       };
     }
 
+    case 'intercept': {
+      const pattern = String(args.pattern ?? '');
+      if (!pattern) throw new CliUsageError('intercept requires --pattern');
+      const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
+      await interceptNetwork(session, [{ urlPattern: pattern }]);
+      return { ok: true, data: { pattern }, message: `Intercepting requests matching: ${pattern}` };
+    }
+
+    case 'mock': {
+      const pattern = String(args.pattern ?? '');
+      const status = typeof args.status === 'number' ? args.status : 200;
+      const body = args.body ? String(args.body) : '{}';
+      const contentType = args.contenttype ? String(args.contenttype) : 'application/json';
+      if (!pattern) throw new CliUsageError('mock requires --pattern');
+      const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
+      await mockResponse(session, pattern, { status, body, contentType });
+      return { ok: true, data: { pattern, status, body, contentType }, message: `Mocking ${pattern} -> ${status} ${contentType}` };
+    }
+
+    case 'continue-request': {
+      const interceptionId = String(args.id ?? '');
+      const action = String(args.action ?? 'continue');
+      if (!interceptionId) throw new CliUsageError('continue-request requires --id');
+      const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
+      await continueInterceptedRequest(session, interceptionId, action as 'continue' | 'mock' | 'fail', {
+        url: args.url ? String(args.url) : undefined,
+        method: args.method ? String(args.method) : undefined,
+        postData: args.postdata ? String(args.postdata) : undefined,
+        headers: args.headers ? JSON.parse(String(args.headers)) : undefined,
+        response: args.response ? JSON.parse(String(args.response)) : undefined,
+      });
+      return { ok: true, data: { interceptionId, action }, message: `Request ${interceptionId} ${action}ed` };
+    }
+
     default:
       throw new CliUsageError(`Unknown command: ${name}`);
   }
@@ -482,6 +519,27 @@ function buildProgram(): Command {
     .description('Diagnose why a selector failed and suggest alternatives from the page DOM')
     .option('--url <url>', 'URL to test against (defaults to current page)')
     .action(act('heal', ['selector']));
+  program.command('intercept')
+    .description('Enable network request interception for a URL pattern')
+    .option('-p, --pattern <pattern>', 'URL pattern to intercept (supports * wildcards)')
+    .action(act('intercept'));
+  program.command('mock')
+    .description('Mock a response for a URL pattern')
+    .option('-p, --pattern <pattern>', 'URL pattern to mock (supports * wildcards)')
+    .option('-s, --status <code>', 'HTTP status code', (v) => Number(v), 200)
+    .option('-b, --body <body>', 'Response body', '{}')
+    .option('--contenttype <type>', 'Content-Type header', 'application/json')
+    .action(act('mock'));
+  program.command('continue-request')
+    .description('Continue, mock, or fail an intercepted request')
+    .option('-i, --id <id>', 'Interception ID')
+    .option('-a, --action <action>', 'Action: continue | mock | fail', 'continue')
+    .option('--url <url>', 'Override request URL')
+    .option('--method <method>', 'Override request method')
+    .option('--postdata <data>', 'Override request body')
+    .option('--headers <json>', 'Override headers as JSON')
+    .option('--response <json>', 'Mock response as JSON: {status, headers, body, contentType}')
+    .action(act('continue-request'));
   program.command('doctor')
     .description('Diagnostics: CDP endpoint, browser binary, memorius')
     .action(act('doctor'));
