@@ -24,11 +24,16 @@ import type { Session } from './session.js';
 export interface ExtractOptions {
   /** Cap the number of records returned (all matches if omitted). */
   limit?: number;
+  /** Fallback selectors to try if the primary selector matches no elements. */
+  fallbacks?: string[];
 }
 
 /**
  * Extract structured data from all elements matching `selector`.
  * Returns one record per element (capped by `options.limit`).
+ *
+ * With `{ fallbacks: [...] }`: tries each fallback selector in order if the
+ * primary selector matches no elements.
  */
 export async function extract(
   session: Session,
@@ -36,6 +41,17 @@ export async function extract(
   fields: string[],
   options: ExtractOptions = {},
 ): Promise<Record<string, unknown>[]> {
+  if (options.fallbacks && options.fallbacks.length > 0) {
+    const selectors = [selector, ...options.fallbacks];
+    for (const sel of selectors) {
+      const records = await extract(session, sel, fields, { limit: options.limit });
+      if (records.length > 0) {
+        return records;
+      }
+    }
+    return [];
+  }
+
   const conn: CDPConnection = await session.page();
   const limit = options.limit ?? null;
 

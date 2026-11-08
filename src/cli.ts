@@ -57,6 +57,7 @@ import { startMcpServer } from './mcp.js';
 import { extract } from './core/extract.js';
 import { doctor } from './core/diagnostics.js';
 import { ensureBrowser, stopBrowser } from './core/browser.js';
+import { Runtime } from './core/types.js';
 
 const DEFAULT_BROWSER_URL = () => process.env.BROWSY_URL ?? 'ws://localhost:9222';
 
@@ -128,6 +129,7 @@ export async function runCommand(
       await waitForSelector(session, selector, {
         timeoutMs: typeof args.timeout === 'number' ? args.timeout : 10000,
         intervalMs: typeof args.interval === 'number' ? args.interval : 100,
+        fallbacks: args.fallback ? String(args.fallback).split(',') : undefined,
       });
       return { ok: true, data: { selector }, message: `Found ${selector}` };
     }
@@ -138,6 +140,7 @@ export async function runCommand(
       const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
       const clicked = await click(session, selector, {
         trusted: Boolean(args.trusted),
+        fallbacks: args.fallback ? String(args.fallback).split(',') : undefined,
       });
       return {
         ok: clicked,
@@ -153,6 +156,7 @@ export async function runCommand(
       const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
       const filled = await fill(session, selector, value, {
         trusted: Boolean(args.trusted),
+        fallbacks: args.fallback ? String(args.fallback).split(',') : undefined,
       });
       return {
         ok: filled,
@@ -210,12 +214,68 @@ export async function runCommand(
           : ['text'];
       const limit = typeof args.limit === 'number' ? args.limit : undefined;
       const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
-      const records = await extract(session, selector, fields, { limit });
+      const records = await extract(session, selector, fields, {
+        limit,
+        fallbacks: args.fallback ? String(args.fallback).split(',') : undefined,
+      });
       return {
         ok: true,
         data: records,
         message: `${records.length} record${records.length === 1 ? '' : 's'} for ${selector}`,
       };
+    }
+
+    case 'heal': {
+      const selector = String(args.selector ?? '');
+      if (!selector) throw new CliUsageError('heal requires a selector');
+      const url = args.url ? String(args.url) : undefined;
+      const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
+      if (url) {
+        await navigatePage(session, url);
+      }
+      const conn = await session.page();
+      const suggestions = await conn.send<{ result?: Runtime.RemoteObject; exceptionDetails?: Runtime.ExceptionDetails }>(
+        'Runtime.evaluate',
+        {
+          expression: `(function(){
+            const target = ${JSON.stringify(selector)};
+            const el = document.querySelector(target);
+            if (el) return { matched: true, selector: target, tag: el.tagName, id: el.id, classes: [...el.classList] };
+            
+            // Try common alternatives
+            const alternatives = [];
+            const all = document.querySelectorAll('*');
+            for (const e of all) {
+              const tag = e.tagName.toLowerCase();
+              const id = e.id ? '#' + e.id : '';
+              const classes = [...e.classList].map(c => '.' + c).join('');
+              const role = e.getAttribute('role') ? '[role="' + e.getAttribute('role') + '"]' : '';
+              const testId = e.getAttribute('data-testid') ? '[data-testid="' + e.getAttribute('data-testid') + '"]' : '';
+              const name = e.getAttribute('name') ? '[name="' + e.getAttribute('name') + '"]' : '';
+              const placeholder = e.getAttribute('placeholder') ? '[placeholder="' + e.getAttribute('placeholder') + '"]' : '';
+              const type = e.getAttribute('type') ? '[type="' + e.getAttribute('type') + '"]' : '';
+              
+              if (id) alternatives.push(tag + id);
+              if (classes) alternatives.push(tag + classes);
+              if (role) alternatives.push(tag + role);
+              if (testId) alternatives.push(tag + testId);
+              if (name) alternatives.push(tag + name);
+              if (placeholder) alternatives.push(tag + placeholder);
+              if (type) alternatives.push(tag + type);
+            }
+            return { matched: false, selector: target, alternatives: [...new Set(alternatives)].slice(0, 20) };
+          })()`,
+          returnByValue: true,
+        },
+      );
+      if (suggestions.exceptionDetails) {
+        throw new Error('heal: page JS threw');
+      }
+      const data = suggestions.result?.value as { matched: boolean; selector: string; tag?: string; id?: string; classes?: string[]; alternatives?: string[] } | undefined;
+      if (data?.matched) {
+        return { ok: true, data, message: `Selector "${selector}" matched: <${data.tag}${data.id ? '#' + data.id : ''}${data.classes ? '.' + data.classes.join('.') : ''}>` };
+      }
+      return { ok: false, data, message: `Selector "${selector}" did not match. Suggestions: ${data?.alternatives?.join(', ') || 'none'}` };
     }
 
     case 'doctor': {
@@ -363,14 +423,28 @@ function buildProgram(): Command {
     .description('Poll until a selector exists')
     .option('--timeout <ms>', 'Max wait in ms', (v) => Number(v))
     .option('--interval <ms>', 'Poll interval in ms', (v) => Number(v))
+    .option('--fallback <selectors>', 'Comma-separated fallback selectors to try if primary fails')
     .action(act('wait', ['selector']));
-  program.command('click <selector>').description('Click the first matching element').option('--trusted', 'Dispatch a renderer-trusted CDP mouse event (Input.dispatchMouseEvent)').action(act('click', ['selector']));
-  program.command('fill <selector> <value>').description('Set a form control value').option('--trusted', 'Type via CDP Input.insertText after focusing the control').action(act('fill', ['selector', 'value']));
+  program.command('click <selector>')
+    .description('Click the first matching element')
+    .option('--trusted', 'Dispatch a renderer-trusted CDP mouse event (Input.dispatchMouseEvent)')
+    .option('--fallback <selectors>', 'Comma-separated fallback selectors to try if primary fails')
+    .action(act('click', ['selector']));
+  program.command('fill <selector> <value>')
+    .description('Set a form control value')
+    .option('--trusted', 'Type via CDP Input.insertText after focusing the control')
+    .option('--fallback <selectors>', 'Comma-separated fallback selectors to try if primary fails')
+    .action(act('fill', ['selector', 'value']));
   program.command('extract <selector>')
     .description('Pull structured records from matching elements')
     .argument('[field...]', 'field spec: text | html | textContent | value | attr:<name>')
     .option('--limit <n>', 'Cap the number of records', (v) => Number(v))
+    .option('--fallback <selectors>', 'Comma-separated fallback selectors to try if primary matches nothing')
     .action(act('extract', ['selector', 'fields']));
+  program.command('heal <selector>')
+    .description('Diagnose why a selector failed and suggest alternatives from the page DOM')
+    .option('--url <url>', 'URL to test against (defaults to current page)')
+    .action(act('heal', ['selector']));
   program.command('doctor')
     .description('Diagnostics: CDP endpoint, browser binary, memorius')
     .action(act('doctor'));
