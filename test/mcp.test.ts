@@ -64,6 +64,8 @@ const EXPECTED_TOOLS = [
   "browsy_cookies",
   "browsy_collect-metrics",
   "browsy_audit-accessibility",
+  "browsy_download",
+  "browsy_upload",
 ];
 
 describe("browsy MCP server (in-process)", () => {

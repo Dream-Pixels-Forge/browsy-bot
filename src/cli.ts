@@ -67,6 +67,8 @@ import {
   visualDiff,
   collectMetrics,
   auditAccessibility,
+  downloadFile,
+  uploadFile,
 } from './core/actions.js';
 import { startMcpServer } from './mcp.js';
 import { extract } from './core/extract.js';
@@ -519,6 +521,23 @@ export async function runCommand(
       };
     }
 
+    case 'download': {
+      const url = String(args.url ?? '');
+      if (!url) throw new CliUsageError('download requires a URL');
+      const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
+      const result = await downloadFile(session, url, args.output ? String(args.output) : undefined);
+      return { ok: true, data: result, message: `Downloaded to ${result.path}` };
+    }
+
+    case 'upload': {
+      const filePath = String(args.file ?? '');
+      if (!filePath) throw new CliUsageError('upload requires --file');
+      if (!args.url) throw new CliUsageError('upload requires --url');
+      const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
+      const result = await uploadFile(session, { filePath, url: String(args.url) });
+      return { ok: result.success, data: result, message: result.success ? 'Upload successful' : 'Upload failed' };
+    }
+
     default:
       throw new CliUsageError(`Unknown command: ${name}`);
   }
@@ -716,6 +735,16 @@ function buildProgram(): Command {
   program.command('a11y')
     .description('Run accessibility audit')
     .action(act('a11y', []));
+
+  program.command('download <url>')
+    .description('Download a file from a URL')
+    .option('-o, --output <path>', 'Save to file path')
+    .action(act('download', ['url']));
+
+  program.command('upload <url>')
+    .description('Upload a file to a URL')
+    .option('-f, --file <path>', 'File to upload')
+    .action(act('upload', ['url', 'file']));
 
   // MCP server — runs the stdio transport directly.
   program

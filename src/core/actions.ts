@@ -485,6 +485,15 @@ export async function loadCookies(
   return session.loadCookies(filePath);
 }
 
+/** Download a file from a URL. */
+export async function downloadFile(
+  session: Session,
+  url: string,
+  savePath?: string,
+): Promise<Network.DownloadFileResult> {
+  return session.downloadFile(url, savePath);
+}
+
 /**
  * Collect Core Web Vitals and performance metrics via the Performance domain.
  * Returns a flat object merging CDP performance metrics, navigation timing,

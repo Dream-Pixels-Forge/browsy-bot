@@ -30,6 +30,8 @@ import {
   fill,
   collectMetrics,
   auditAccessibility,
+  downloadFile,
+  uploadFile,
 } from "./core/actions.js";
 import { recall, getMemoriusShell } from "./memorius.js";
 import * as fs from "fs";
@@ -454,6 +456,55 @@ export function createBrowsyServer(): McpServer {
         const url = args.browserUrl ?? DEFAULT_BROWSER_URL;
         const session = await getSession(url, { targetId: args.targetId });
         const result = await auditAccessibility(session);
+        return result;
+      }),
+  );
+
+  server.registerTool(
+    "browsy_download",
+    {
+      description:
+        "Download a file from a URL using CDP Browser.downloadFile.",
+      inputSchema: {
+        url: z.string().describe("URL to download"),
+        savePath: z.string().optional().describe("Local save path"),
+        ...addressSchema,
+      },
+    },
+    async (args) =>
+      run(async () => {
+        const url = args.browserUrl ?? DEFAULT_BROWSER_URL;
+        const session = await getSession(url, { targetId: args.targetId });
+        const result = await downloadFile(session, args.url, args.savePath);
+        return result;
+      }),
+  );
+
+  server.registerTool(
+    "browsy_upload",
+    {
+      description:
+        "Upload a file to a URL using CDP DOM.setFileInputFiles or form submission.",
+      inputSchema: {
+        filePath: z.string().describe("Local file path"),
+        url: z.string().describe("URL to upload to"),
+        method: z.enum(["POST", "PUT"]).optional().describe("HTTP method"),
+        fieldName: z.string().optional().describe("Form field name"),
+        additionalHeaders: z.record(z.string(), z.string()).optional(),
+        ...addressSchema,
+      },
+    },
+    async (args) =>
+      run(async () => {
+        const url = args.browserUrl ?? DEFAULT_BROWSER_URL;
+        const session = await getSession(url, { targetId: args.targetId });
+        const result = await uploadFile(session, {
+          filePath: args.filePath,
+          url: args.url,
+          method: args.method,
+          fieldName: args.fieldName,
+          additionalHeaders: args.additionalHeaders as Record<string, string> | undefined,
+        });
         return result;
       }),
   );
