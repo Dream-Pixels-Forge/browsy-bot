@@ -276,14 +276,76 @@ export interface NetworkEntry {
   resourceType?: string;
 }
 
-// Network Domain - Interception
+// Network Domain - Cookies & Interception
 export namespace Network {
+  export interface Cookie {
+    name: string;
+    value: string;
+    domain: string;
+    path: string;
+    expires?: number;
+    size?: number;
+    httpOnly?: boolean;
+    secure?: boolean;
+    session?: boolean;
+    sameSite?: 'Strict' | 'Lax' | 'None';
+    priority?: 'Low' | 'Medium' | 'High';
+    sameParty?: boolean;
+    sourceScheme?: 'Unsecure' | 'Secure';
+    sourcePort?: number;
+    partitionKey?: string;
+  }
+
+  export interface GetCookiesParams {
+    urls?: string[];
+  }
+
+  export interface GetCookiesResult {
+    cookies: Cookie[];
+  }
+
+  export interface SetCookieParams {
+    name: string;
+    value: string;
+    url?: string;
+    domain?: string;
+    path?: string;
+    secure?: boolean;
+    httpOnly?: boolean;
+    sameSite?: 'Strict' | 'Lax' | 'None';
+    expires?: number;
+  }
+
+  export interface SetCookieResult {
+    success: boolean;
+  }
+
+  export interface DeleteCookiesParams {
+    name: string;
+    url?: string;
+    domain?: string;
+    path?: string;
+  }
+
+  export interface DeleteCookiesResult {}
+
   export interface RequestPattern {
     urlPattern: string;
     resourceType?: string;
     requestStage?: 'Request' | 'Response';
   }
 
+  export interface Request {
+    requestId: string;
+    loaderId: string;
+    documentURL: string;
+    url: string;
+    method: string;
+    headers: Record<string, string>;
+    postData?: string;
+    hasPostData: boolean;
+    resourceType: string;
+    priority: string;
   export interface SetRequestInterceptionParams {
     patterns: RequestPattern[];
   }
@@ -299,19 +361,6 @@ export namespace Network {
     responseErrorReason?: string;
     responseStatusCode?: number;
     responseHeaders?: Record<string, string>;
-  }
-
-  export interface Request {
-    requestId: string;
-    loaderId: string;
-    documentURL: string;
-    url: string;
-    method: string;
-    headers: Record<string, string>;
-    postData?: string;
-    hasPostData: boolean;
-    resourceType: string;
-    priority: string;
   }
 
   export interface AuthChallenge {
@@ -436,6 +485,28 @@ export namespace Fetch {
     };
   }
 }
+
+// Re-export Network namespace types for convenience
+export type NetworkCookie = Network.Cookie;
+export type NetworkGetCookiesParams = Network.GetCookiesParams;
+export type NetworkGetCookiesResult = Network.GetCookiesResult;
+export type NetworkSetCookieParams = Network.SetCookieParams;
+export type NetworkSetCookieResult = Network.SetCookieResult;
+export type NetworkDeleteCookiesParams = Network.DeleteCookiesParams;
+export type NetworkRequestPattern = Network.RequestPattern;
+export type NetworkRequest = Network.Request;
+export type NetworkRequestInterceptedEvent = Network.RequestInterceptedEvent;
+export type NetworkContinueInterceptedRequestParams = Network.ContinueInterceptedRequestParams;
+export type NetworkSetResponseOverrideParams = Network.SetResponseOverrideParams;
+
+// Re-export Fetch namespace types for convenience
+export type FetchRequestPattern = Fetch.RequestPattern;
+export type FetchEnableParams = Fetch.EnableParams;
+export type FetchRequestPausedEvent = Fetch.RequestPausedEvent;
+export type FetchFailRequestParams = Fetch.FailRequestParams;
+export type FetchFulfillRequestParams = Fetch.FulfillRequestParams;
+export type FetchContinueRequestParams = Fetch.ContinueRequestParams;
+export type FetchContinueWithAuthParams = Fetch.ContinueWithAuthParams;
 
 // Generic CDP Domain Handler
 export interface CDPDomain {
