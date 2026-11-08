@@ -436,6 +436,46 @@ export async function foreachTab<T>(
   return session.foreachTab(fn);
 }
 
+/** Get all cookies for the current page. */
+export async function getCookies(
+  session: Session,
+  urls?: string[],
+): Promise<Network.Cookie[]> {
+  return session.getCookies(urls);
+}
+
+/** Set a cookie for the current page. */
+export async function setCookie(
+  session: Session,
+  params: Network.SetCookieParams,
+): Promise<Network.SetCookieResult> {
+  return session.setCookie(params);
+}
+
+/** Delete a cookie by name. */
+export async function deleteCookie(
+  session: Session,
+  params: Network.DeleteCookiesParams,
+): Promise<void> {
+  return session.deleteCookie(params);
+}
+
+/** Save all cookies to a JSON file. */
+export async function saveCookies(
+  session: Session,
+  filePath: string,
+): Promise<void> {
+  return session.saveCookies(filePath);
+}
+
+/** Load cookies from a JSON file and set them in the browser. */
+export async function loadCookies(
+  session: Session,
+  filePath: string,
+): Promise<void> {
+  return session.loadCookies(filePath);
+}
+
 /** Enable network request interception for matching URL patterns. */
 export async function interceptNetwork(
   session: Session,

@@ -57,6 +57,11 @@ import {
   interceptNetwork,
   mockResponse,
   continueInterceptedRequest,
+  getCookies,
+  setCookie,
+  deleteCookie,
+  saveCookies,
+  loadCookies,
 } from './core/actions.js';
 import { startMcpServer } from './mcp.js';
 import { extract } from './core/extract.js';
@@ -242,6 +247,57 @@ export async function runCommand(
         }
       });
       return { ok: true, data: results, message: `Broadcast ${action} to ${results.length} tab${results.length === 1 ? '' : 's'}` };
+    }
+
+    case 'cookies': {
+      const subcommand = String(args.subcommand ?? '');
+      const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
+
+      if (subcommand === 'get') {
+        const urls = args.urls ? String(args.urls).split(',') : undefined;
+        const cookies = await getCookies(session, urls);
+        return { ok: true, data: cookies, message: `${cookies.length} cookie${cookies.length === 1 ? '' : 's'}` };
+      }
+
+      if (subcommand === 'set') {
+        const name = String(args.name ?? '');
+        const value = String(args.value ?? '');
+        if (!name || !value) throw new CliUsageError('cookies set requires --name and --value');
+        const result = await setCookie(session, {
+          name,
+          value,
+          domain: args.domain ? String(args.domain) : undefined,
+          path: args.path ? String(args.path) : undefined,
+          secure: args.secure === true,
+          httpOnly: args.httponly === true,
+          sameSite: args.samesite ? (String(args.samesite) as 'Strict' | 'Lax' | 'None') : undefined,
+          expires: args.expires ? Number(args.expires) : undefined,
+        });
+        return { ok: result.success, data: result, message: result.success ? `Cookie ${name} set` : `Failed to set cookie ${name}` };
+      }
+
+      if (subcommand === 'delete') {
+        const name = String(args.name ?? '');
+        if (!name) throw new CliUsageError('cookies delete requires --name');
+        await deleteCookie(session, { name });
+        return { ok: true, data: { name }, message: `Cookie ${name} deleted` };
+      }
+
+      if (subcommand === 'save') {
+        const file = String(args.file ?? '');
+        if (!file) throw new CliUsageError('cookies save requires --file');
+        await saveCookies(session, file);
+        return { ok: true, data: { file }, message: `Cookies saved to ${file}` };
+      }
+
+      if (subcommand === 'load') {
+        const file = String(args.file ?? '');
+        if (!file) throw new CliUsageError('cookies load requires --file');
+        await loadCookies(session, file);
+        return { ok: true, data: { file }, message: `Cookies loaded from ${file}` };
+      }
+
+      throw new CliUsageError('cookies requires a subcommand: get, set, delete, save, or load');
     }
 
     case 'extract': {
@@ -561,6 +617,20 @@ function buildProgram(): Command {
   program.command('close-tab <id>').description('Close a tab').action(act('close-tab', ['id']));
   program.command('switch-tab <id>').description('Switch the active target to a specific tab').action(act('switch-tab', ['id']));
   program.command('broadcast <selector> <action>').description('Run an action (click, fill, eval) across all tabs').argument('[value]', 'Value for fill action').option('--trusted', 'Use renderer-trusted CDP input events').option('-e, --expression <expr>', 'JavaScript expression for eval action').action(act('broadcast', ['selector', 'action', 'value']));
+  program.command('cookies <subcommand>')
+    .description('Manage cookies: get, set, delete, save, load')
+    .argument('<subcommand>', 'get | set | delete | save | load')
+    .option('--name <name>', 'Cookie name (for set/delete)')
+    .option('--value <value>', 'Cookie value (for set)')
+    .option('--domain <domain>', 'Cookie domain')
+    .option('--path <path>', 'Cookie path')
+    .option('--secure', 'Secure flag')
+    .option('--httponly', 'HttpOnly flag')
+    .option('--samesite <policy>', 'SameSite policy: Strict | Lax | None')
+    .option('--expires <timestamp>', 'Expiration timestamp (Unix seconds)')
+    .option('--urls <urls>', 'Comma-separated URLs to filter cookies (for get)')
+    .option('--file <path>', 'File path (for save/load)')
+    .action(act('cookies', ['subcommand', 'name', 'value', 'file']));
 
   // MCP server — runs the stdio transport directly.
   program
