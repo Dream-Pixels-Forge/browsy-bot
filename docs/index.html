@@ -3,8 +3,8 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>browsy-bot — Zero-middleware CDP browser automation</title>
-  <meta name="description" content="browsy-bot is a zero-middleware Chrome DevTools Protocol browser-automation kit: direct CDP, no Puppeteer or Playwright. One core, three adapters — OpenCode plugin, universal MCP server, and CLI. Learns selectors and flows across sessions." />
+  <title>browsy-bot — Zero middleware CDP browser automation</title>
+  <meta name="description" content="browsy-bot is a zero middleware Chrome DevTools Protocol browser-automation kit: direct CDP, no Puppeteer or Playwright. One core, three adapters — OpenCode plugin, universal MCP server, and CLI. Learns selectors and flows across sessions." />
   <meta name="theme-color" content="#0b0908" />
   <link rel="preconnect" href="https://github.com" crossorigin />
   <style>
@@ -422,10 +422,10 @@
         <div class="hero-mark reveal" aria-hidden="true">
           <svg viewBox="0 0 24 24"><path d="M4 6l8-4 8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10z"/><path d="M9 12l2.5 2.5L15.5 9"/></svg>
         </div>
-        <div class="eyebrow-hero reveal"><span class="dot"></span> v0.2.0 · Zero-middleware CDP</div>
+        <div class="eyebrow-hero reveal"><span class="dot"></span> v0.2.0 · Direct CDP, no middleware</div>
         <h1 class="reveal">Browser automation,<br /><span class="accent">Zero middleware.</span></h1>
         <p class="sub reveal">
-          <strong>browsy-bot</strong> talks directly to the Chrome DevTools Protocol — no Puppeteer, no Playwright, no ChromeDriver. One CDP core, three adapters: an <strong>OpenCode plugin</strong>, a universal <strong>MCP server</strong>, and a <strong>CLI</strong>. It even remembers selectors and flows across sessions.
+          <strong>browsy-bot</strong> talks directly to the Chrome DevTools Protocol — no Puppeteer, no Playwright, no ChromeDriver. One CDP core, three adapters: OpenCode plugin, universal MCP server, and CLI. It even remembers selectors and flows across sessions.
         </p>
         <div class="install reveal" role="group" aria-label="Install command">
           <span class="prompt">$</span>
@@ -457,14 +457,14 @@
       <div class="wrap">
         <span class="eyebrow reveal">Why browsy-bot</span>
         <h2 class="reveal">The raw protocol, with nothing in the way.</h2>
-        <p class="lead reveal">Every call gets an explicit <code>browserUrl</code> and optional <code>targetId</code> — no hidden driver state, no extra binaries. These are the pillars.</p>
+        <p class="lead reveal">Every call takes an explicit <code>browserUrl</code> and optional <code>targetId</code> — no hidden driver state, no extra binaries. That's the entire philosophy.</p>
         <div class="grid">
-          <div class="feature delay-1"><div class="icon"><svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M4 9h16M9 4v16"/></svg></div><h3>Zero middleware</h3><p>No ChromeDriver, Puppeteer, or Playwright. A direct CDP WebSocket — minimal latency, full protocol fidelity, deterministic lifecycle.</p></div>
-          <div class="feature delay-2"><div class="icon"><svg viewBox="0 0 24 24"><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/><circle cx="12" cy="12" r="4"/></svg></div><h3>Zero hidden state</h3><p>Addressed explicitly per call. Sessions cache when you want them, tear down when you don't — you always know what's connected.</p></div>
-          <div class="feature delay-3"><div class="icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2"/></svg></div><h3>Granular targeting</h3><p>Operate on specific tabs and windows via <code>targetId</code>, or auto-discover the first page target. Full multi-tab control.</p></div>
-          <div class="feature delay-4"><div class="icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M7 13h6M7 17h10"/></svg></div><h3>Protocol-complete</h3><p>Domain wrappers for Page, Runtime, Performance, Accessibility, and Target — the CDP surface you actually need, typed.</p></div>
-          <div class="feature delay-5"><div class="icon"><svg viewBox="0 0 24 24"><path d="M4 8V6a2 2 0 012-2h12a2 2 0 012 2v2"/><path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/><path d="M12 6v12M8 10v4M16 10v4"/></svg></div><h3>Multi-tool</h3><p>One core, three adapters: an OpenCode plugin, a universal MCP server, and a CLI — all built on the same typed CDP client.</p></div>
-          <div class="feature delay-6"><div class="icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/><path d="M12 7v4M8.5 16.5L7 18M15.5 16.5L17 18M5 17l2-3M19 17l-2-3"/></svg></div><h3>Learns across sessions</h3><p>Optional <a href="https://github.com/Dream-Pixels-Forge/memorius" target="_blank" rel="noopener">memorius</a> integration stores selectors, quirks, and navigation flows — and surfaces them before the next task.</p></div>
+          <div class="feature delay-1"><div class="icon"><svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M4 9h16M9 4v16"/></svg></div><h3>Zero middleware</h3><p>No ChromeDriver, Puppeteer, or Playwright between you and the browser. Just a direct CDP WebSocket — minimal latency, full protocol fidelity, deterministic lifecycle.</p></div>
+          <div class="feature delay-2"><div class="icon"><svg viewBox="0 0 24 24"><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/><circle cx="12" cy="12" r="4"/></svg></div><h3>Zero hidden state</h3><p>Every target is addressed explicitly, per call. Sessions cache when you want them and tear down when you don't — you always know what's connected.</p></div>
+          <div class="feature delay-3"><div class="icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2"/></svg></div><h3>Granular targeting</h3><p>Operate on a specific tab or window via <code>targetId</code>, or auto-discover the first page target. Full multi-tab control.</p></div>
+          <div class="feature delay-4"><div class="icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M7 13h6M7 17h10"/></svg></div><h3>Complete protocol coverage</h3><p>Typed domain wrappers for Page, Runtime, Performance, Accessibility, and Target — the CDP surface you actually need.</p></div>
+          <div class="feature delay-5"><div class="icon"><svg viewBox="0 0 24 24"><path d="M4 8V6a2 2 0 012-2h12a2 2 0 012 2v2"/><path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/><path d="M12 6v12M8 10v4M16 10v4"/></svg></div><h3>One core, three adapters</h3><p>An OpenCode plugin, a universal MCP server, and a CLI — all built on the same typed CDP client.</p></div>
+          <div class="feature delay-6"><div class="icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/><path d="M12 7v4M8.5 16.5L7 18M15.5 16.5L17 18M5 17l2-3M19 17l-2-3"/></svg></div><h3>Learns across sessions</h3><p>Optional <a href="https://github.com/Dream-Pixels-Forge/memorius" target="_blank" rel="noopener">memorius</a> integration stores selectors, quirks, and navigation flows — and surfaces them before your next task.</p></div>
         </div>
       </div>
     </section>
@@ -472,7 +472,7 @@
     <section id="adapters">
       <div class="wrap">
         <span class="eyebrow reveal">One core, three ways in</span>
-        <h2 class="reveal">Meet it through the tool you already use.</h2>
+        <h2 class="reveal">Use the interface you already know.</h2>
         <p class="lead reveal">The same CDP client powers an OpenCode plugin, a universal MCP server, and a CLI. Pick your surface — the core is identical.</p>
         <div class="grid grid-3">
           <div class="adapter delay-1"><span class="tag">8 tools</span><div class="icon"><svg viewBox="0 0 24 24"><path d="M12 3l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V7z"/></svg></div><h3>OpenCode plugin</h3><p>Drop it into your OpenCode config and agents get a first-class <code>browsy_*</code> toolset, plus an optional bundled agent skill.</p><ul><li><code>navigate</code> · <code>screenshot</code> · <code>evaluate</code></li><li><code>recall</code> · <code>wait</code> · <code>console</code></li><li><code>network_log</code> · <code>list_tabs</code></li></ul></div>
@@ -488,8 +488,8 @@
         <div class="tk">
           <div class="tk-left">
             <span class="eyebrow reveal">v0.2.0 toolkit</span>
-            <h2 class="reveal">Primitives that remove the tedious parts.</h2>
-            <p class="reveal">Beyond raw CDP, browsy-bot ships a small toolkit covering the jobs people actually automate. Follow the steps — each one is a real command.</p>
+            <h2 class="reveal">Primitives that handle the tedious parts.</h2>
+            <p class="reveal">Beyond raw CDP, browsy-bot ships a small toolkit covering the jobs people actually automate. Each step below is a real command.</p>
             <ul class="tk-nav" aria-label="Toolkit steps">
               <li data-for="s1" data-spy-step><span class="num">01</span> Diagnose with doctor</li>
               <li data-for="s2" data-spy-step><span class="num">02</span> Pull data with extract</li>
@@ -500,7 +500,7 @@
           <div class="tk-right">
             <div class="tk-step" id="s1" data-step>
               <div class="head"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1118 0 9 9 0 01-18 0z"/><path d="M12 8v4l3 2"/></svg><span class="k">doctor<small>Read-only diagnostics</small></span></div>
-              <p>Probes the CDP endpoint, target count, browser-binary discovery, and memorius availability, then returns an actionable report. The first thing to run when nothing works.</p>
+              <p>Probes the CDP endpoint, target count, browser-binary discovery, and memorius availability — returns an actionable report. Run this first when nothing works.</p>
               <pre><code>browsy doctor --json
 <span class="c"># not ready: CDP endpoint unreachable. Launch Chrome with:</span>
 <span class="c">#   chrom… --headless --no-sandbox, or run "browsy ensure-browser".</span></code></pre>
@@ -513,7 +513,7 @@
             </div>
             <div class="tk-step" id="s3" data-step>
               <div class="head"><svg viewBox="0 0 24 24"><path d="M8 5v14M16 5v14M8 9h8M8 15h8"/></svg><span class="k">ensure-browser · stop-browser<small>Self-service lifecycle</small></span></div>
-              <p><code>ensure-browser</code> probes the endpoint and, if it's down, spawns a Chrome/Chromium on a <em>dedicated</em> profile dir (never your logged-in one), writes a pidfile, and waits for CDP to answer. <code>stop-browser</code> SIGTERMs the recorded pid.</p>
+              <p><code>ensure-browser</code> probes the endpoint and, if it's down, spawns Chrome/Chromium on a <em>dedicated</em> profile dir (never your logged-in one), writes a pidfile, and waits for CDP. <code>stop-browser</code> SIGTERMs the recorded pid.</p>
               <pre><code>browsy ensure-browser --port 9222 --no-headless
 browsy stop-browser</code></pre>
             </div>
@@ -532,7 +532,7 @@ browsy fill "#email" "a@b.c" --trusted</code></pre>
       <div class="wrap">
         <span class="eyebrow reveal">Get started</span>
         <h2 class="reveal">From zero to a driven tab in three lines.</h2>
-        <p class="lead reveal">As a standalone library there is no build step on the consumer side — import, connect, act.</p>
+        <p class="lead reveal">No build step — import, connect, act.</p>
         <div class="quick">
           <pre class="reveal"><code><span class="k">import</span> { getSession, navigatePage, click, extract } <span class="k">from</span> <span class="s">"browsy-bot"</span>;
 
@@ -556,7 +556,7 @@ browsy fill "#email" "a@b.c" --trusted</code></pre>
       <div class="wrap">
         <span class="eyebrow reveal">Operating notes</span>
         <h2 class="reveal">CDP is a powerful channel. Know the blast radius.</h2>
-        <p class="lead reveal">A live endpoint is equivalent to a shell on the machine that runs Chrome. Here's the posture.</p>
+        <p class="lead reveal">A live endpoint is equivalent to a shell on the machine running Chrome. Here's the posture.</p>
         <div class="security reveal">
           <ul class="arch-notes">
             <li><strong>Loopback only.</strong> The default is <code>ws://localhost:9222</code>. Don't bind the CDP port to <code>0.0.0.0</code> unless it's behind a firewall and you own the blast radius.</li>
@@ -598,7 +598,7 @@ browsy fill "#email" "a@b.c" --trusted</code></pre>
         <a href="#security">Security</a>
         <a href="#quickstart">Docs</a>
       </div>
-      <div class="copy">MIT © 2026 Dream-Pixels-Forge · Zero-middleware CDP browser automation · <a href="https://dream-pixels-forge.github.io/browsy-bot/" rel="noopener">dream-pixels-forge.github.io/browsy-bot</a></div>
+      <div class="copy">MIT © 2026 Dream-Pixels-Forge · Zero middleware CDP browser automation · <a href="https://dream-pixels-forge.github.io/browsy-bot/" rel="noopener">dream-pixels-forge.github.io/browsy-bot</a></div>
     </div>
   </footer>
 
