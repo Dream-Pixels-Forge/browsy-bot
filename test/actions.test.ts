@@ -14,6 +14,8 @@ import {
   listTabs,
   newTab,
   closeTab,
+  collectMetrics,
+  auditAccessibility,
 } from "../src/core/actions.js";
 
 // actions.js imports listTargets from connection.js for the listTabs action.
@@ -51,8 +53,36 @@ function makeSession() {
               offsetY: 0,
             },
           };
+        case "Performance.enable":
+        case "Accessibility.enable":
+          return {};
+        case "Performance.getMetrics":
+          return { metrics: [{ name: "Timestamp", value: 12345 }] };
+        case "Accessibility.getFullAXTree":
+          return { nodes: [] };
         case "Runtime.evaluate": {
           const expr = params?.expression ?? "";
+          if (expr.includes("performance.timing")) {
+            return { result: { value: JSON.stringify({
+              navigationStart: 1000,
+              responseStart: 2000,
+              domContentLoadedEventEnd: 3000,
+              loadEventEnd: 4000,
+              firstPaint: 500,
+              firstContentfulPaint: 600,
+            }) } };
+          }
+          if (expr.includes("getEntriesByType")) {
+            return { result: { value: JSON.stringify({
+              lcp: 1500,
+              cls: 0.1,
+              fid: 100,
+              inp: 50,
+              ttfb: 800,
+              fcp: 700,
+              tbt: 200,
+            }) } };
+          }
           if (expr.includes("? '1' : '0'") || expr.startsWith("document.querySelector"))
             return { result: { value: "1" } };
           if (expr.startsWith("document.body")) return { result: { value: "Hello World" } };
@@ -62,10 +92,8 @@ function makeSession() {
             return { result: { value: '{"clicked":true,"tag":"BUTTON"}' } };
           if (expr.includes("el.value ="))
             return { result: { value: '{"filled":true,"tag":"INPUT"}' } };
-          // Trusted click: measure the element's viewport rect.
           if (expr.includes("getBoundingClientRect"))
             return { result: { value: { x: 10, y: 20, w: 100, h: 50 } } };
-          // Trusted fill: focus + select the control.
           if (expr.includes("el.select"))
             return { result: { value: true } };
           return { result: { value: "1" } };
@@ -263,5 +291,30 @@ describe("core actions", () => {
       const trustedEvents = conn.send.mock.calls.filter((c) => c[0].startsWith("Input."));
       expect(trustedEvents).toHaveLength(0);
     });
+  });
+
+  describe("metrics & accessibility", () => {
+    it("collectMetrics merges CDP metrics, navigation timing and web vitals", async () => {
+      const { session, conn } = makeSession();
+      const result = await collectMetrics(session);
+      expect(conn.send).toHaveBeenCalledWith("Performance.enable");
+      expect(conn.send).toHaveBeenCalledWith("Performance.getMetrics");
+      expect(result).toHaveProperty("navigationStart");
+      expect(result).toHaveProperty("responseStart");
+      expect(result).toHaveProperty("domContentLoadedEventEnd");
+      expect(result).toHaveProperty("loadEventEnd");
+    }, 15000);
+
+    it("auditAccessibility returns score, violations and passes", async () => {
+      const { session, conn } = makeSession();
+      const result = await auditAccessibility(session);
+      expect(conn.send).toHaveBeenCalledWith("Accessibility.enable");
+      expect(conn.send).toHaveBeenCalledWith("Accessibility.getFullAXTree");
+      expect(result).toHaveProperty("score");
+      expect(result).toHaveProperty("violations");
+      expect(result).toHaveProperty("passes");
+      expect(result).toHaveProperty("inapplicable");
+      expect(result).toHaveProperty("incomplete");
+    }, 15000);
   });
 });

@@ -65,6 +65,8 @@ import {
   saveCookies,
   loadCookies,
   visualDiff,
+  collectMetrics,
+  auditAccessibility,
 } from './core/actions.js';
 import { startMcpServer } from './mcp.js';
 import { extract } from './core/extract.js';
@@ -497,6 +499,26 @@ export async function runCommand(
       };
     }
 
+    case 'metrics': {
+      const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
+      const result = await collectMetrics(session);
+      return {
+        ok: true,
+        data: result,
+        message: `Collected ${Object.keys(result).length} metrics`,
+      };
+    }
+
+    case 'a11y': {
+      const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
+      const result = await auditAccessibility(session);
+      return {
+        ok: result.score > 0,
+        data: result,
+        message: `Accessibility score: ${result.score}/100 (${result.violations.length} violations)`,
+      };
+    }
+
     default:
       throw new CliUsageError(`Unknown command: ${name}`);
   }
@@ -686,6 +708,14 @@ function buildProgram(): Command {
     .option('-t, --threshold <n>', 'Diff threshold percentage (0-100)', (v) => Number(v), 1)
     .option('-o, --output <path>', 'Output diff image path')
     .action(act('visual-diff', ['baseline', 'current']));
+
+  program.command('metrics')
+    .description('Collect Core Web Vitals and performance metrics')
+    .action(act('metrics', []));
+
+  program.command('a11y')
+    .description('Run accessibility audit')
+    .action(act('a11y', []));
 
   // MCP server — runs the stdio transport directly.
   program
