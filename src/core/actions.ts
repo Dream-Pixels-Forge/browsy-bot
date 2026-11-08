@@ -63,6 +63,11 @@ export interface InteractionOptions {
    * existing callers see no behavior change.
    */
   trusted?: boolean;
+  /**
+   * Fallback selectors to try if the primary selector fails.
+   * Tried in order until one matches.
+   */
+  fallbacks?: string[];
 }
 
 /**
@@ -75,6 +80,9 @@ export interface InteractionOptions {
  * viewport rect, and issue CDP `Input.dispatchMouseEvent` (mousePressed +
  * mouseReleased at the element center) so the renderer treats it as a real
  * user click.
+ *
+ * With `{ fallbacks: [...] }`: tries each fallback selector in order if the
+ * primary selector fails to match.
  */
 export async function click(
   session: Session,
@@ -82,6 +90,15 @@ export async function click(
   options: InteractionOptions = {},
 ): Promise<boolean> {
   if (options.trusted) return clickTrusted(session, selector);
+  if (options.fallbacks && options.fallbacks.length > 0) {
+    const selectors = [selector, ...options.fallbacks];
+    for (const sel of selectors) {
+      if (await click(session, sel, { trusted: options.trusted })) {
+        return true;
+      }
+    }
+    return false;
+  }
   const conn = await page(session);
   const script = `
     (() => {
@@ -176,6 +193,9 @@ async function clickTrusted(session: Session, selector: string): Promise<boolean
  * CDP `Input.insertText` — the renderer sees a real typed-text event,
  * which some frameworks (and file inputs, password managers, etc.)
  * handle differently than a programmatic value assignment.
+ *
+ * With `{ fallbacks: [...] }`: tries each fallback selector in order if the
+ * primary selector fails to match.
  */
 export async function fill(
   session: Session,
@@ -184,6 +204,15 @@ export async function fill(
   options: InteractionOptions = {},
 ): Promise<boolean> {
   if (options.trusted) return fillTrusted(session, selector, value);
+  if (options.fallbacks && options.fallbacks.length > 0) {
+    const selectors = [selector, ...options.fallbacks];
+    for (const sel of selectors) {
+      if (await fill(session, sel, value, { trusted: options.trusted })) {
+        return true;
+      }
+    }
+    return false;
+  }
   const conn = await page(session);
   const script = `
     (() => {
@@ -249,17 +278,40 @@ export interface WaitForOptions {
   intervalMs?: number;
   /** Max total wait in ms before throwing. Defaults to 10000. */
   timeoutMs?: number;
+  /** Fallback selectors to try if the primary selector is not found. */
+  fallbacks?: string[];
 }
 
 /**
  * Poll until an element matching `selector` exists in the DOM. Resolves when
  * found; throws when the timeout elapses.
+ *
+ * With `{ fallbacks: [...] }`: tries each fallback selector in order if the
+ * primary selector fails to match within the timeout.
  */
 export async function waitForSelector(
   session: Session,
   selector: string,
   options: WaitForOptions = {},
 ): Promise<void> {
+  if (options.fallbacks && options.fallbacks.length > 0) {
+    const selectors = [selector, ...options.fallbacks];
+    for (const sel of selectors) {
+      try {
+        return await waitForSelector(session, sel, {
+          intervalMs: options.intervalMs,
+          timeoutMs: options.timeoutMs,
+        });
+      } catch {
+        // Try next fallback
+        continue;
+      }
+    }
+    throw new Error(
+      `waitForSelector timed out: ${selector} (and fallbacks: ${options.fallbacks.join(', ')})`,
+    );
+  }
+
   const intervalMs = options.intervalMs ?? 100;
   const timeoutMs = options.timeoutMs ?? 10000;
   const deadline = Date.now() + timeoutMs;
