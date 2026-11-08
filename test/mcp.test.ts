@@ -59,6 +59,8 @@ const EXPECTED_TOOLS = [
   "browsy_console",
   "browsy_network_log",
   "browsy_recall",
+  "browsy_switch_tab",
+  "browsy_broadcast",
 ];
 
 describe("browsy MCP server (in-process)", () => {

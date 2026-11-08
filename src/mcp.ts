@@ -19,6 +19,10 @@ import {
   fullPageScreenshot,
   navigatePage,
   listTabs as sessionListTabs,
+  switchTab,
+  foreachTab,
+  click,
+  fill,
 } from "./core/actions.js";
 import { recall, getMemoriusShell } from "./memorius.js";
 import * as fs from "fs";
@@ -142,6 +146,79 @@ export function createBrowsyServer(): McpServer {
         const session = await getSession(url, { targetId: args.targetId });
         const tabs = await sessionListTabs(session);
         return tabs;
+      }),
+  );
+
+  server.registerTool(
+    "browsy_switch_tab",
+    {
+      description: "Switch the active target to a specific tab by target id.",
+      inputSchema: {
+        targetId: z.string().describe("The target id of the tab to switch to."),
+        browserUrl: addressSchema.browserUrl,
+      },
+    },
+    async (args) =>
+      run(async () => {
+        const url = args.browserUrl ?? DEFAULT_BROWSER_URL;
+        const session = await getSession(url, { targetId: args.targetId });
+        await switchTab(session, args.targetId);
+        return { switchedTo: args.targetId };
+      }),
+  );
+
+  server.registerTool(
+    "browsy_broadcast",
+    {
+      description:
+        "Run an action (click, fill, evaluate) across all open page tabs. Returns results per tab.",
+      inputSchema: {
+        action: z.enum(["click", "fill", "evaluate"]).describe("Action to broadcast."),
+        selector: z.string().optional().describe("CSS selector for click/fill actions."),
+        value: z.string().optional().describe("Value for fill action."),
+        expression: z.string().optional().describe("JavaScript expression for evaluate action."),
+        trusted: z.boolean().optional().describe("Use renderer-trusted CDP input events for click/fill."),
+        targetId: z.string().optional().describe("Specific tab to start from (optional; auto-discovers when omitted)."),
+        browserUrl: addressSchema.browserUrl,
+      },
+    },
+    async (args) =>
+      run(async () => {
+        const url = args.browserUrl ?? DEFAULT_BROWSER_URL;
+        const session = await getSession(url, { targetId: args.targetId });
+        const results = await foreachTab(session, async (s, targetId) => {
+          switch (args.action) {
+            case "click": {
+              if (!args.selector) throw new Error("broadcast click requires a selector");
+              const result = await click(s, args.selector, { trusted: args.trusted });
+              return { targetId, clicked: result };
+            }
+            case "fill": {
+              if (!args.selector) throw new Error("broadcast fill requires a selector");
+              if (!args.value) throw new Error("broadcast fill requires a value");
+              const result = await fill(s, args.selector, args.value, { trusted: args.trusted });
+              return { targetId, filled: result };
+            }
+            case "evaluate": {
+              if (!args.expression) throw new Error("broadcast evaluate requires an expression");
+              const conn = await s.page();
+              const result = await conn.send<{ result?: { value?: unknown }; exceptionDetails?: unknown }>(
+                "Runtime.evaluate",
+                {
+                  expression: args.expression,
+                  returnByValue: true,
+                },
+              );
+              if (result.exceptionDetails) {
+                return { targetId, error: "page JS threw", details: result.exceptionDetails };
+              }
+              return { targetId, value: result.result?.value };
+            }
+            default:
+              throw new Error(`Unknown broadcast action: ${args.action}`);
+          }
+        });
+        return results;
       }),
   );
 
