@@ -693,6 +693,22 @@ export async function runScript(
   return results;
 }
 
+/** Upload a file to a URL. */
+export async function uploadFile(
+  session: Session,
+  params: Network.UploadFileParams,
+): Promise<Network.UploadFileResult> {
+  return session.uploadFile(params);
+}
+
+/** Compare current page screenshot against a baseline image for visual regression testing. */
+export async function visualDiff(
+  session: Session,
+  params: Network.VisualDiffParams,
+): Promise<Network.VisualDiffResult> {
+  return session.visualDiff(params);
+}
+
 // Re-exported for adapters that prefer a connection-only shape.
 export { createConnection, listTargets };
 export type { Target, TargetListEntry, Runtime, Page };
