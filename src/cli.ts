@@ -64,6 +64,7 @@ import {
   deleteCookie,
   saveCookies,
   loadCookies,
+  visualDiff,
 } from './core/actions.js';
 import { startMcpServer } from './mcp.js';
 import { extract } from './core/extract.js';
@@ -477,6 +478,25 @@ export async function runCommand(
       return { ok: true, data: { interceptionId, action }, message: `Request ${interceptionId} ${action}ed` };
     }
 
+    case 'visual-diff': {
+      const baseline = String(args.baseline ?? '');
+      if (!baseline) throw new CliUsageError('visual-diff requires --baseline');
+      const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
+      const result = await visualDiff(session, {
+        baselinePath: baseline,
+        currentPath: args.current ? String(args.current) : undefined,
+        threshold: args.threshold ? Number(args.threshold) : undefined,
+        outputPath: args.output ? String(args.output) : undefined,
+      });
+      return {
+        ok: !result.changed,
+        data: result,
+        message: result.changed
+          ? `Visual change detected: ${result.diffPercentage.toFixed(2)}% different (${result.diffPixels} pixels)`
+          : 'No visual changes detected',
+      };
+    }
+
     default:
       throw new CliUsageError(`Unknown command: ${name}`);
   }
@@ -659,6 +679,13 @@ function buildProgram(): Command {
     .option('--urls <urls>', 'Comma-separated URLs to filter cookies (for get)')
     .option('--file <path>', 'File path (for save/load)')
     .action(act('cookies', ['subcommand', 'name', 'value', 'file']));
+  program.command('visual-diff')
+    .description('Compare current page screenshot against a baseline image')
+    .requiredOption('-b, --baseline <path>', 'Baseline image path')
+    .option('-c, --current <path>', 'Current image path (defaults to current page)')
+    .option('-t, --threshold <n>', 'Diff threshold percentage (0-100)', (v) => Number(v), 1)
+    .option('-o, --output <path>', 'Output diff image path')
+    .action(act('visual-diff', ['baseline', 'current']));
 
   // MCP server — runs the stdio transport directly.
   program

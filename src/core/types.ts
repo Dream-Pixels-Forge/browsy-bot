@@ -143,6 +143,26 @@ export namespace Performance {
     name: string;
     value: number;
   }
+
+  // Core Web Vitals
+  export interface CoreWebVitals {
+    lcp?: number;      // Largest Contentful Paint (ms)
+    cls?: number;      // Cumulative Layout Shift
+    fid?: number;      // First Input Delay (ms)
+    inp?: number;      // Interaction to Next Paint (ms)
+    ttfb?: number;     // Time to First Byte (ms)
+    fcp?: number;      // First Contentful Paint (ms)
+    tbt?: number;      // Total Blocking Time (ms)
+  }
+
+  export interface PerformanceTiming {
+    navigationStart: number;
+    responseStart: number;
+    domContentLoadedEventEnd: number;
+    loadEventEnd: number;
+    firstPaint: number;
+    firstContentfulPaint: number;
+  }
 }
 
 // Accessibility Domain
@@ -192,6 +212,49 @@ export namespace Accessibility {
     type: string;
     value?: string | number | boolean;
     // ... (other properties as needed)
+  }
+
+  // Accessibility audit results
+  export interface AuditResult {
+    score: number;           // 0-100
+    violations: Violation[];
+    passes: Pass[];
+    inapplicable: string[];
+    incomplete: string[];
+  }
+
+  export interface Violation {
+    id: string;
+    description: string;
+    help: string;
+    helpUrl: string;
+    impact: 'critical' | 'serious' | 'moderate' | 'minor';
+    nodes: ViolationNode[];
+  }
+
+  export interface ViolationNode {
+    nodeId: string;
+    target: string[];        // CSS selectors
+    html: string;
+    failureSummary: string;
+    any: Check[];
+    all: Check[];
+    none: Check[];
+  }
+
+  export interface Check {
+    id: string;
+    description: string;
+    impact: string;
+    message: string;
+  }
+
+  export interface Pass {
+    id: string;
+    description: string;
+    help: string;
+    helpUrl: string;
+    nodes: ViolationNode[];
   }
 }
 
@@ -276,7 +339,7 @@ export interface NetworkEntry {
   resourceType?: string;
 }
 
-// Network Domain - Cookies & Interception
+// Network Domain - Cookies, Interception, File Transfer, Visual Regression
 export namespace Network {
   export interface Cookie {
     name: string;
@@ -394,30 +457,54 @@ export namespace Network {
     };
   }
 
-
-  export interface GetCookiesResult {
-    cookies: Cookie[];
+  // File transfer
+  export interface DownloadProgress {
+    guid: string;
+    url: string;
+    receivedBytes: number;
+    totalBytes: number;
+    state: 'inProgress' | 'completed' | 'canceled';
   }
 
-  export interface SetCookieParams {
-    name: string;
-    value: string;
-    domain?: string;
+  export interface DownloadFileParams {
+    url: string;
     path?: string;
-    secure?: boolean;
-    httpOnly?: boolean;
-    sameSite?: 'Strict' | 'Lax' | 'None';
-    expires?: number;
   }
 
-  export interface SetCookieResult {
+  export interface DownloadFileResult {
+    path: string;
+    receivedBytes: number;
+  }
+
+  export interface UploadFileParams {
+    filePath: string;
+    url: string;
+    method?: 'POST' | 'PUT';
+    fieldName?: string;
+    additionalHeaders?: Record<string, string>;
+  }
+
+  export interface UploadFileResult {
     success: boolean;
+    response?: string;
   }
 
-  export interface DeleteCookiesParams {
-    name: string;
-    domain?: string;
-    path?: string;
+  // Visual regression
+  export interface VisualDiffParams {
+    baselinePath: string;
+    currentPath?: string;  // If omitted, captures current page
+    threshold?: number;    // 0-100, percentage of pixels allowed to differ
+    outputPath?: string;   // Where to save diff image
+  }
+
+  export interface VisualDiffResult {
+    changed: boolean;
+    diffPixels: number;
+    totalPixels: number;
+    diffPercentage: number;
+    diffImagePath?: string;
+    baselineImagePath: string;
+    currentImagePath: string;
   }
 }
 

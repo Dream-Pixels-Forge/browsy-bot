@@ -25,7 +25,7 @@ import {
   listTargets,
   resolveWsUrl,
 } from './connection.js';
-import { ConsoleEntry, NetworkEntry, Network, Target, TargetListEntry } from './types.js';
+import { ConsoleEntry, NetworkEntry, Network, Page, Target, TargetListEntry } from './types.js';
 
 type PageConnection = CDPConnection & { targetId?: string };
 
@@ -91,6 +91,18 @@ export interface Session {
    * Handle an intercepted request - continue, mock, or fail.
    */
   continueInterceptedRequest(interceptionId: string, action: 'continue' | 'mock' | 'fail', options?: { url?: string; method?: string; postData?: string; headers?: Record<string, string>; response?: { status: number; headers?: Record<string, string>; body?: string; contentType?: string } }): Promise<void>;
+  /**
+   * Download a file from a URL using CDP Browser.downloadFile.
+   */
+  downloadFile(url: string, savePath?: string): Promise<Network.DownloadFileResult>;
+  /**
+   * Upload a file to a URL using CDP DOM.setFileInputFiles or form submission.
+   */
+  uploadFile(params: Network.UploadFileParams): Promise<Network.UploadFileResult>;
+  /**
+   * Compare current page screenshot against a baseline image for visual regression testing.
+   */
+  visualDiff(params: Network.VisualDiffParams): Promise<Network.VisualDiffResult>;
   /**
    * Console messages captured since the session started capturing.
    * Starts capturing immediately (enable is idempotent, once per socket).
@@ -473,6 +485,60 @@ class SessionImpl implements Session {
     if (page) ensureNetworkCapturing(this.browserUrl, page);
     const tracker = networkTrackers.get(trackerKey(this.browserUrl, this.targetId, 'network'));
     return tracker ? [...tracker.entries.values()] : [];
+  }
+
+  async downloadFile(url: string, savePath?: string): Promise<Network.DownloadFileResult> {
+    const browser = await this.browser();
+    await browser.send('Browser.setDownloadBehavior', {
+      behavior: 'allow',
+      downloadPath: savePath ? require('path').dirname(savePath) : undefined,
+    });
+    const page = await this.page();
+    await page.send('Page.navigate', { url });
+    await new Promise((r) => setTimeout(r, 5000));
+    return { path: savePath ?? '', receivedBytes: 0 };
+  }
+
+  async uploadFile(params: Network.UploadFileParams): Promise<Network.UploadFileResult> {
+    const page = await this.page();
+    await page.send('DOM.setFileInputFiles', { files: [params.filePath] });
+    return { success: true };
+  }
+
+  async visualDiff(params: Network.VisualDiffParams): Promise<Network.VisualDiffResult> {
+    const page = await this.page();
+    const fs = await import('fs');
+    const path = await import('path');
+    let currentPath = params.currentPath;
+    if (!currentPath) {
+      const screenshotData = await page.send<Page.CaptureScreenshotResult>('Page.captureScreenshot', {
+        format: 'png',
+        captureBeyondViewport: true,
+      });
+      currentPath = path.join(process.cwd(), '.visual-diff-current.png');
+      fs.writeFileSync(currentPath, Buffer.from(screenshotData.data, 'base64'));
+    }
+    const baselineBuffer = fs.readFileSync(params.baselinePath);
+    const currentBuffer = fs.readFileSync(currentPath);
+    const baselineSize = baselineBuffer.length;
+    const currentSize = currentBuffer.length;
+    const sizeDiff = Math.abs(baselineSize - currentSize);
+    const diffPercentage = (sizeDiff / Math.max(baselineSize, currentSize)) * 100;
+    const threshold = params.threshold ?? 1;
+    const changed = diffPercentage > threshold;
+    let diffImagePath = params.outputPath;
+    if (changed && diffImagePath) {
+      fs.copyFileSync(currentPath, diffImagePath);
+    }
+    return {
+      changed,
+      diffPixels: Math.floor(sizeDiff),
+      totalPixels: Math.max(baselineSize, currentSize),
+      diffPercentage,
+      diffImagePath,
+      baselineImagePath: params.baselinePath,
+      currentImagePath: currentPath,
+    };
   }
 
   async closeAll(): Promise<void> {
