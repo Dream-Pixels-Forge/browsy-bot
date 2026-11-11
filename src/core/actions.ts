@@ -365,6 +365,7 @@ export { waitForNetworkIdle } from './idle.js';
 export { getAccessibilityTree } from './a11y.js';
 export { captureBaseline, compareScreenshot } from './visual.js';
 export { setRequestInterception, getPausedRequests } from './intercept.js';
+export { enableStealth } from './stealth.js';
 
 // --- tab management (session-level, uses browser connection) ----------------
 

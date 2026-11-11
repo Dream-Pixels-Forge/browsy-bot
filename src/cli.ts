@@ -61,6 +61,7 @@ import {
   captureBaseline,
   compareScreenshot,
   setRequestInterception,
+  enableStealth,
 } from './core/actions.js';
 import { startMcpServer } from './mcp.js';
 import { extract } from './core/extract.js';
@@ -227,6 +228,12 @@ export async function runCommand(
         data: { rules: typedRules.length, blocked, mocked },
         message: `Interception configured: ${blocked} blocked, ${mocked} mocked`,
       };
+    }
+
+    case 'stealth': {
+      const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
+      await enableStealth(session);
+      return { ok: true, data: { stealth: true }, message: 'Stealth mode enabled' };
     }
 
     case 'dialog': {
@@ -517,6 +524,9 @@ function buildProgram(): Command {
   program.command('intercept <rules>')
     .description('Block or mock network requests (JSON array of rules)')
     .action(act('intercept', ['rules']));
+  program.command('stealth')
+    .description('Enable stealth anti-detection mode on every new document')
+    .action(act('stealth'));
   program.command('dialog [action]')
     .description('Accept, dismiss, or read the most recent JavaScript dialog')
     .option('--prompt <text>', 'Text to enter for prompt dialogs')

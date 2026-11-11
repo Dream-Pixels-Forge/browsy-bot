@@ -81,6 +81,7 @@ const EXPECTED_TOOLS = [
   "browsy_visual_baseline",
   "browsy_visual_compare",
   "browsy_intercept",
+  "browsy_stealth",
   "browsy_dialog",
   "browsy_upload",
   "browsy_download",
@@ -302,6 +303,29 @@ describe("browsy MCP server (in-process)", () => {
     expect(res.isError).toBeFalsy();
     expect(text).toContain("blocked");
     expect(text).toContain("mocked");
+
+    await client.close();
+    await serverTransport.close();
+  }, 15000);
+
+  it("browsy_stealth enables anti-detection mode", async () => {
+    const server = createBrowsyServer();
+    const client = new Client({ name: "test-client", version: "0.0.0" });
+    const [serverTransport, clientTransport] =
+      InMemoryTransport.createLinkedPair();
+    await Promise.all([
+      server.connect(serverTransport),
+      client.connect(clientTransport),
+    ]);
+
+    const res = await client.callTool({
+      name: "browsy_stealth",
+      arguments: {},
+    });
+    const text = (res.content as Array<{ text?: string }>)[0]?.text ?? "";
+    expect(res.isError).toBeFalsy();
+    expect(text).toContain("stealth");
+    expect(text).toContain("true");
 
     await client.close();
     await serverTransport.close();

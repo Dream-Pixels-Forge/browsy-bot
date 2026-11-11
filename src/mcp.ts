@@ -31,6 +31,7 @@ import {
   compareScreenshot,
   setRequestInterception,
   getPausedRequests,
+  enableStealth,
 } from "./core/actions.js";
 import type { InterceptRule } from "./core/intercept.js";
 import { preflight } from "./core/diagnostics.js";
@@ -413,6 +414,22 @@ export function createBrowsyServer(): McpServer {
         const blocked = args.rules.filter((r) => r.action === "block").length;
         const mocked = args.rules.filter((r) => r.action === "mock").length;
         return { ok: true, rules: args.rules.length, blocked, mocked };
+      }),
+  );
+
+  server.registerTool(
+    "browsy_stealth",
+    {
+      description:
+        "Enable stealth mode: inject an anti-detection script on every new document that neutralizes navigator.webdriver, spoofs plugins/languages/WebGL, and adds a chrome object.",
+      inputSchema: { ...addressSchema },
+    },
+    async (args) =>
+      run(async () => {
+        const url = args.browserUrl ?? DEFAULT_BROWSER_URL;
+        const session = await getSession(url, { targetId: args.targetId });
+        await enableStealth(session);
+        return { ok: true, stealth: true };
       }),
   );
 
