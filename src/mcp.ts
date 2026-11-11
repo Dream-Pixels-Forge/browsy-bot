@@ -34,6 +34,8 @@ import {
   enableStealth,
   recordSession,
   replaySession,
+  trackNewTabs,
+  switchToTab,
 } from "./core/actions.js";
 import type { InterceptRule } from "./core/intercept.js";
 import { preflight } from "./core/diagnostics.js";
@@ -468,6 +470,44 @@ export function createBrowsyServer(): McpServer {
       run(async () => {
         const conn = await replaySession(args.filePath);
         return { ok: true, filePath: args.filePath, targetId: conn.getTargetId() };
+      }),
+  );
+
+  server.registerTool(
+    "browsy_track_tabs",
+    {
+      description:
+        "List all open page tabs and register a handler for new tabs (popups, target=_blank links). Returns target id, url, and title.",
+      inputSchema: { ...addressSchema },
+    },
+    async (args) =>
+      run(async () => {
+        const url = args.browserUrl ?? DEFAULT_BROWSER_URL;
+        const session = await getSession(url, { targetId: args.targetId });
+        const tabs = await trackNewTabs(session);
+        return { tabs, count: tabs.length };
+      }),
+  );
+
+  server.registerTool(
+    "browsy_switch_tab",
+    {
+      description:
+        "Activate a tab by target ID and set up auto-attach for subsequent page-domain commands.",
+      inputSchema: {
+        targetId: z.string().describe("The target id of the tab to switch to."),
+        browserUrl: z
+          .string()
+          .optional()
+          .describe("CDP endpoint. Defaults to $BROWSY_URL or ws://localhost:9222."),
+      },
+    },
+    async (args) =>
+      run(async () => {
+        const url = args.browserUrl ?? DEFAULT_BROWSER_URL;
+        const session = await getSession(url, { targetId: args.targetId });
+        await switchToTab(session, args.targetId);
+        return { ok: true, targetId: args.targetId };
       }),
   );
 

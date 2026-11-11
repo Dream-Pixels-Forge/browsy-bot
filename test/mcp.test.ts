@@ -20,6 +20,14 @@ beforeEach(() => {
 
 // Mock the whole CDP transport so no real WebSocket / HTTP is needed.
 vi.mock("../src/core/connection.js", () => ({
+  CDPConnection: class {
+    connect = vi.fn(async () => {});
+    send = vi.fn(async () => ({}));
+    on = vi.fn();
+    close = vi.fn(async () => {});
+    isConnected = () => true;
+    getTargetId = () => "mock-tab";
+  },
   createConnection: vi.fn(async () => ({
     send: vi.fn(async (method: string) => {
       if (method === "Page.navigate") return { frameId: "f", loaderId: "l" };
@@ -87,6 +95,8 @@ const EXPECTED_TOOLS = [
   "browsy_stealth",
   "browsy_record",
   "browsy_replay",
+  "browsy_track_tabs",
+  "browsy_switch_tab",
   "browsy_dialog",
   "browsy_upload",
   "browsy_download",
@@ -394,5 +404,47 @@ describe("browsy MCP server (in-process)", () => {
     await client.close();
     await serverTransport.close();
     fs.rmSync(filePath, { force: true });
+  }, 15000);
+
+  it("browsy_track_tabs lists page tabs", async () => {
+    const server = createBrowsyServer();
+    const client = new Client({ name: "test-client", version: "0.0.0" });
+    const [serverTransport, clientTransport] =
+      InMemoryTransport.createLinkedPair();
+    await Promise.all([
+      server.connect(serverTransport),
+      client.connect(clientTransport),
+    ]);
+
+    const res = await client.callTool({
+      name: "browsy_track_tabs",
+      arguments: {},
+    });
+    const text = (res.content as Array<{ text?: string }>)[0]?.text ?? "";
+    expect(res.isError).toBeFalsy();
+    expect(text).toContain("tabs");    await client.close();
+    await serverTransport.close();
+  }, 15000);
+
+  it("browsy_switch_tab activates a tab", async () => {
+    const server = createBrowsyServer();
+    const client = new Client({ name: "test-client", version: "0.0.0" });
+    const [serverTransport, clientTransport] =
+      InMemoryTransport.createLinkedPair();
+    await Promise.all([
+      server.connect(serverTransport),
+      client.connect(clientTransport),
+    ]);
+
+    const res = await client.callTool({
+      name: "browsy_switch_tab",
+      arguments: { targetId: "tab-42" },
+    });
+    const text = (res.content as Array<{ text?: string }>)[0]?.text ?? "";
+    expect(res.isError).toBeFalsy();
+    expect(text).toContain("tab-42");
+
+    await client.close();
+    await serverTransport.close();
   }, 15000);
 });

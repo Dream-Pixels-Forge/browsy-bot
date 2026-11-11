@@ -64,6 +64,8 @@ import {
   enableStealth,
   recordSession,
   replaySession,
+  trackNewTabs,
+  switchToTab,
 } from './core/actions.js';
 import { startMcpServer } from './mcp.js';
 import { extract } from './core/extract.js';
@@ -266,6 +268,20 @@ export async function runCommand(
       if (!filePath) throw new CliUsageError('replay requires a filePath');
       const conn = await replaySession(filePath);
       return { ok: true, data: { filePath, targetId: conn.getTargetId() }, message: `Replayed ${filePath}` };
+    }
+
+    case 'track-tabs': {
+      const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
+      const tabs = await trackNewTabs(session);
+      return { ok: true, data: tabs, message: `${tabs.length} page tab${tabs.length === 1 ? '' : 's'} tracked` };
+    }
+
+    case 'switch-tab': {
+      const targetId = String(args.targetId ?? '');
+      if (!targetId) throw new CliUsageError('switch-tab requires a target id');
+      const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
+      await switchToTab(session, targetId);
+      return { ok: true, data: { targetId }, message: `Switched to tab ${targetId}` };
     }
 
     case 'dialog': {
@@ -568,6 +584,12 @@ function buildProgram(): Command {
   program.command('replay <filePath>')
     .description('Replay a recorded NDJSON session into a mock connection')
     .action(act('replay', ['filePath']));
+  program.command('track-tabs')
+    .description('List page tabs and register a handler for new tabs')
+    .action(act('track-tabs'));
+  program.command('switch-tab <targetId>')
+    .description('Activate a tab by target ID')
+    .action(act('switch-tab', ['targetId']));
   program.command('dialog [action]')
     .description('Accept, dismiss, or read the most recent JavaScript dialog')
     .option('--prompt <text>', 'Text to enter for prompt dialogs')

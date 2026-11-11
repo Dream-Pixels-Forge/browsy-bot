@@ -367,6 +367,7 @@ export { captureBaseline, compareScreenshot } from './visual.js';
 export { setRequestInterception, getPausedRequests } from './intercept.js';
 export { enableStealth } from './stealth.js';
 export { recordSession, replaySession } from './record.js';
+export { trackNewTabs, switchToTab } from './tabs.js';
 
 // --- tab management (session-level, uses browser connection) ----------------
 
