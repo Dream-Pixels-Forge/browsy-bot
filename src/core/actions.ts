@@ -363,6 +363,7 @@ export { setFileInput } from './upload.js';
 export { setDownloadBehavior, listDownloads } from './download.js';
 export { waitForNetworkIdle } from './idle.js';
 export { getAccessibilityTree } from './a11y.js';
+export { captureBaseline, compareScreenshot } from './visual.js';
 
 // --- tab management (session-level, uses browser connection) ----------------
 

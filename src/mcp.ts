@@ -27,6 +27,8 @@ import {
   listDownloads,
   waitForNetworkIdle,
   getAccessibilityTree,
+  captureBaseline,
+  compareScreenshot,
 } from "./core/actions.js";
 import { preflight } from "./core/diagnostics.js";
 import {
@@ -324,6 +326,53 @@ export function createBrowsyServer(): McpServer {
         const url = args.browserUrl ?? DEFAULT_BROWSER_URL;
         const session = await getSession(url, { targetId: args.targetId });
         return getAccessibilityTree(session);
+      }),
+  );
+
+  server.registerTool(
+    "browsy_visual_baseline",
+    {
+      description:
+        "Capture a full-page screenshot and save it as a visual-regression baseline under dev-notes/browsy-captures/baselines/.",
+      inputSchema: {
+        name: z.string().describe("Baseline name (used as the file name)."),
+        ...addressSchema,
+      },
+    },
+    async (args) =>
+      run(async () => {
+        const url = args.browserUrl ?? DEFAULT_BROWSER_URL;
+        const session = await getSession(url, { targetId: args.targetId });
+        const path = await captureBaseline(session, args.name);
+        return { ok: true, path, name: args.name };
+      }),
+  );
+
+  server.registerTool(
+    "browsy_visual_compare",
+    {
+      description:
+        "Capture a full-page screenshot and pixel-compare it against a saved baseline. Returns pass/fail plus diff stats.",
+      inputSchema: {
+        name: z.string().describe("Baseline name to compare against."),
+        threshold: z
+          .number()
+          .min(0)
+          .max(1)
+          .optional()
+          .default(0)
+          .describe("Max fraction of differing pixels to still pass (0..1)."),
+        ...addressSchema,
+      },
+    },
+    async (args) =>
+      run(async () => {
+        const url = args.browserUrl ?? DEFAULT_BROWSER_URL;
+        const session = await getSession(url, { targetId: args.targetId });
+        const result = await compareScreenshot(session, args.name, {
+          threshold: args.threshold,
+        });
+        return { ...result, name: args.name };
       }),
   );
 

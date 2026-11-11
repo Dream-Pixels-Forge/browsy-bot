@@ -58,6 +58,8 @@ import {
   setDownloadBehavior,
   waitForNetworkIdle,
   getAccessibilityTree,
+  captureBaseline,
+  compareScreenshot,
 } from './core/actions.js';
 import { startMcpServer } from './mcp.js';
 import { extract } from './core/extract.js';
@@ -181,6 +183,29 @@ export async function runCommand(
       const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
       const tree = await getAccessibilityTree(session);
       return { ok: true, data: { tree }, message: `${tree.length} accessibility node${tree.length === 1 ? '' : 's'}` };
+    }
+
+    case 'visual-baseline': {
+      const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
+      const name = String(args.name ?? '');
+      if (!name) throw new CliUsageError('visual-baseline requires a name');
+      const filePath = await captureBaseline(session, name);
+      return { ok: true, data: { path: filePath, name }, message: `Baseline saved to ${filePath}` };
+    }
+
+    case 'visual-compare': {
+      const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
+      const name = String(args.name ?? '');
+      if (!name) throw new CliUsageError('visual-compare requires a name');
+      const threshold = typeof args.threshold === 'number' ? args.threshold : 0;
+      const result = await compareScreenshot(session, name, { threshold });
+      return {
+        ok: result.pass,
+        data: result,
+        message: result.pass
+          ? `Visual match: ${name} (${result.diffPixels}/${result.totalPixels} px differ)`
+          : `Visual mismatch: ${name} (${result.diffPixels}/${result.totalPixels} px differ, ratio ${result.diffRatio.toFixed(3)})`,
+      };
     }
 
     case 'dialog': {
@@ -461,6 +486,13 @@ function buildProgram(): Command {
   program.command('a11y')
     .description('Return the live accessibility tree, simplified per node')
     .action(act('a11y'));
+  program.command('visual-baseline <name>')
+    .description('Capture a full-page screenshot and save it as a visual-regression baseline')
+    .action(act('visual-baseline', ['name']));
+  program.command('visual-compare <name>')
+    .description('Capture a full-page screenshot and pixel-compare against a baseline')
+    .option('--threshold <n>', 'Max fraction of differing pixels to pass (0..1)', (v) => Number(v))
+    .action(act('visual-compare', ['name']));
   program.command('dialog [action]')
     .description('Accept, dismiss, or read the most recent JavaScript dialog')
     .option('--prompt <text>', 'Text to enter for prompt dialogs')

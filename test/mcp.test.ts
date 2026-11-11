@@ -78,6 +78,8 @@ const EXPECTED_TOOLS = [
   "browsy_wait",
   "browsy_wait_idle",
   "browsy_a11y",
+  "browsy_visual_baseline",
+  "browsy_visual_compare",
   "browsy_dialog",
   "browsy_upload",
   "browsy_download",
