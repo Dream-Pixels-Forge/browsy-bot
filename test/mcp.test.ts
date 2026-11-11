@@ -8,6 +8,9 @@ import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createBrowsyServer } from "../src/mcp.js";
 import { ensureCapturesDir, writeScreenshot, mayAutosave } from "../src/core/capture.js";
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
 
 // Clear mock call counts between tests so permission-gating assertions are
 // not polluted by earlier tests.
@@ -82,6 +85,8 @@ const EXPECTED_TOOLS = [
   "browsy_visual_compare",
   "browsy_intercept",
   "browsy_stealth",
+  "browsy_record",
+  "browsy_replay",
   "browsy_dialog",
   "browsy_upload",
   "browsy_download",
@@ -329,5 +334,65 @@ describe("browsy MCP server (in-process)", () => {
 
     await client.close();
     await serverTransport.close();
+  }, 15000);
+
+  it("browsy_record starts recording to a file", async () => {
+    const server = createBrowsyServer();
+    const client = new Client({ name: "test-client", version: "0.0.0" });
+    const [serverTransport, clientTransport] =
+      InMemoryTransport.createLinkedPair();
+    await Promise.all([
+      server.connect(serverTransport),
+      client.connect(clientTransport),
+    ]);
+
+    const filePath = path.join(os.tmpdir(), "browsy-mcp-record.ndjson");
+    const res = await client.callTool({
+      name: "browsy_record",
+      arguments: { filePath },
+    });
+    const text = (res.content as Array<{ text?: string }>)[0]?.text ?? "";
+    expect(res.isError).toBeFalsy();
+    expect(text).toContain(filePath);
+
+    await client.close();
+    await serverTransport.close();
+    fs.rmSync(filePath, { force: true });
+  }, 15000);
+
+  it("browsy_replay reads a recorded file", async () => {
+    const filePath = path.join(os.tmpdir(), "browsy-mcp-replay.ndjson");
+    fs.writeFileSync(
+      filePath,
+      JSON.stringify({
+        type: "message",
+        method: "Page.navigate",
+        params: { url: "https://example.com" },
+        result: { frameId: "f1" },
+        timestamp: 1,
+      }) + "\n"
+    );
+
+    const server = createBrowsyServer();
+    const client = new Client({ name: "test-client", version: "0.0.0" });
+    const [serverTransport, clientTransport] =
+      InMemoryTransport.createLinkedPair();
+    await Promise.all([
+      server.connect(serverTransport),
+      client.connect(clientTransport),
+    ]);
+
+    const res = await client.callTool({
+      name: "browsy_replay",
+      arguments: { filePath },
+    });
+    const text = (res.content as Array<{ text?: string }>)[0]?.text ?? "";
+    expect(res.isError).toBeFalsy();
+    expect(text).toContain(filePath);
+    expect(text).toContain("replayed");
+
+    await client.close();
+    await serverTransport.close();
+    fs.rmSync(filePath, { force: true });
   }, 15000);
 });

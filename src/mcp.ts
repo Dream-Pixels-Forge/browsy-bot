@@ -32,6 +32,8 @@ import {
   setRequestInterception,
   getPausedRequests,
   enableStealth,
+  recordSession,
+  replaySession,
 } from "./core/actions.js";
 import type { InterceptRule } from "./core/intercept.js";
 import { preflight } from "./core/diagnostics.js";
@@ -430,6 +432,42 @@ export function createBrowsyServer(): McpServer {
         const session = await getSession(url, { targetId: args.targetId });
         await enableStealth(session);
         return { ok: true, stealth: true };
+      }),
+  );
+
+  server.registerTool(
+    "browsy_record",
+    {
+      description:
+        "Record all CDP messages and events from a session to an NDJSON file for offline replay.",
+      inputSchema: {
+        filePath: z.string().describe("Path to write the NDJSON recording."),
+        ...addressSchema,
+      },
+    },
+    async (args) =>
+      run(async () => {
+        const url = args.browserUrl ?? DEFAULT_BROWSER_URL;
+        const session = await getSession(url, { targetId: args.targetId });
+        const { stopRecording } = await recordSession(session, args.filePath);
+        return { ok: true, filePath: args.filePath, stopRecording: "call browsy_stop_recording" };
+      }),
+  );
+
+  server.registerTool(
+    "browsy_replay",
+    {
+      description:
+        "Replay a recorded NDJSON session into a mock connection. Returns the replayed connection handle.",
+      inputSchema: {
+        filePath: z.string().describe("Path to the NDJSON recording to replay."),
+        ...addressSchema,
+      },
+    },
+    async (args) =>
+      run(async () => {
+        const conn = await replaySession(args.filePath);
+        return { ok: true, filePath: args.filePath, targetId: conn.getTargetId() };
       }),
   );
 

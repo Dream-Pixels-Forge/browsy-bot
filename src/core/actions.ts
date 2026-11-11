@@ -366,6 +366,7 @@ export { getAccessibilityTree } from './a11y.js';
 export { captureBaseline, compareScreenshot } from './visual.js';
 export { setRequestInterception, getPausedRequests } from './intercept.js';
 export { enableStealth } from './stealth.js';
+export { recordSession, replaySession } from './record.js';
 
 // --- tab management (session-level, uses browser connection) ----------------
 

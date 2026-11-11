@@ -62,6 +62,8 @@ import {
   compareScreenshot,
   setRequestInterception,
   enableStealth,
+  recordSession,
+  replaySession,
 } from './core/actions.js';
 import { startMcpServer } from './mcp.js';
 import { extract } from './core/extract.js';
@@ -234,6 +236,36 @@ export async function runCommand(
       const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
       await enableStealth(session);
       return { ok: true, data: { stealth: true }, message: 'Stealth mode enabled' };
+    }
+
+    case 'record': {
+      const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
+      const filePath = String(args.filePath ?? '');
+      if (!filePath) throw new CliUsageError('record requires a filePath');
+      const { stopRecording } = await recordSession(session, filePath);
+      // Keep the stop function in a module-level map keyed by filePath so the
+      // user can call `browsy stop-recording <filePath>` later.
+      (globalThis as any).__browsyRecordings = (globalThis as any).__browsyRecordings || {};
+      (globalThis as any).__browsyRecordings[filePath] = stopRecording;
+      return { ok: true, data: { filePath }, message: `Recording to ${filePath}` };
+    }
+
+    case 'stop-recording': {
+      const filePath = String(args.filePath ?? '');
+      if (!filePath) throw new CliUsageError('stop-recording requires a filePath');
+      const recordings = (globalThis as any).__browsyRecordings || {};
+      const stop = recordings[filePath];
+      if (!stop) throw new CliUsageError(`No active recording for ${filePath}`);
+      stop();
+      delete recordings[filePath];
+      return { ok: true, data: { filePath }, message: `Stopped recording to ${filePath}` };
+    }
+
+    case 'replay': {
+      const filePath = String(args.filePath ?? '');
+      if (!filePath) throw new CliUsageError('replay requires a filePath');
+      const conn = await replaySession(filePath);
+      return { ok: true, data: { filePath, targetId: conn.getTargetId() }, message: `Replayed ${filePath}` };
     }
 
     case 'dialog': {
@@ -527,6 +559,15 @@ function buildProgram(): Command {
   program.command('stealth')
     .description('Enable stealth anti-detection mode on every new document')
     .action(act('stealth'));
+  program.command('record <filePath>')
+    .description('Record CDP messages/events to NDJSON file')
+    .action(act('record', ['filePath']));
+  program.command('stop-recording <filePath>')
+    .description('Stop an active recording and flush NDJSON to disk')
+    .action(act('stop-recording', ['filePath']));
+  program.command('replay <filePath>')
+    .description('Replay a recorded NDJSON session into a mock connection')
+    .action(act('replay', ['filePath']));
   program.command('dialog [action]')
     .description('Accept, dismiss, or read the most recent JavaScript dialog')
     .option('--prompt <text>', 'Text to enter for prompt dialogs')
