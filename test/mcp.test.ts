@@ -75,6 +75,7 @@ const EXPECTED_TOOLS = [
   "browsy_screenshot",
   "browsy_evaluate",
   "browsy_wait",
+  "browsy_dialog",
   "browsy_console",
   "browsy_network_log",
   "browsy_recall",
@@ -140,6 +141,28 @@ describe("browsy MCP server (in-process)", () => {
     const text = (res.content as Array<{ text?: string }>)[0]?.text ?? "";
     expect(res.isError).toBeFalsy();
     expect(text).toContain("t1");
+
+    await client.close();
+    await serverTransport.close();
+  }, 15000);
+
+  it("browsy_dialog accept returns accepted result", async () => {
+    const server = createBrowsyServer();
+    const client = new Client({ name: "test-client", version: "0.0.0" });
+    const [serverTransport, clientTransport] =
+      InMemoryTransport.createLinkedPair();
+    await Promise.all([
+      server.connect(serverTransport),
+      client.connect(clientTransport),
+    ]);
+
+    const res = await client.callTool({
+      name: "browsy_dialog",
+      arguments: { action: "accept" },
+    });
+    const text = (res.content as Array<{ text?: string }>)[0]?.text ?? "";
+    expect(res.isError).toBeTruthy(); // no dialog opened yet -> error
+    expect(text).toMatch(/no JavaScript dialog/);
 
     await client.close();
     await serverTransport.close();

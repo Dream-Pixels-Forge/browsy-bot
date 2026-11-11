@@ -51,6 +51,9 @@ import {
   fullPageScreenshot,
   navigatePage,
   listTabs as sessionListTabs,
+  acceptDialog,
+  dismissDialog,
+  dialogText,
 } from './core/actions.js';
 import { startMcpServer } from './mcp.js';
 import { extract } from './core/extract.js';
@@ -160,6 +163,21 @@ export async function runCommand(
         intervalMs: typeof args.interval === 'number' ? args.interval : 100,
       });
       return { ok: true, data: { selector }, message: `Found ${selector}` };
+    }
+
+    case 'dialog': {
+      const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
+      const action = String(args.action ?? 'accept');
+      if (action === 'text') {
+        const text = await dialogText(session);
+        return { ok: true, data: { text }, message: text };
+      }
+      if (action === 'accept') {
+        const result = await acceptDialog(session, args.promptText ? String(args.promptText) : undefined);
+        return { ok: true, data: { accepted: true, result }, message: 'Dialog accepted' };
+      }
+      await dismissDialog(session);
+      return { ok: true, data: { accepted: false }, message: 'Dialog dismissed' };
     }
 
     case 'click': {
@@ -394,6 +412,10 @@ function buildProgram(): Command {
     .option('--timeout <ms>', 'Max wait in ms', (v) => Number(v))
     .option('--interval <ms>', 'Poll interval in ms', (v) => Number(v))
     .action(act('wait', ['selector']));
+  program.command('dialog [action]')
+    .description('Accept, dismiss, or read the most recent JavaScript dialog')
+    .option('--prompt <text>', 'Text to enter for prompt dialogs')
+    .action(act('dialog', ['action']));
   program.command('click <selector>').description('Click the first matching element').option('--trusted', 'Dispatch a renderer-trusted CDP mouse event (Input.dispatchMouseEvent)').action(act('click', ['selector']));
   program.command('fill <selector> <value>').description('Set a form control value').option('--trusted', 'Type via CDP Input.insertText after focusing the control').action(act('fill', ['selector', 'value']));
   program.command('extract <selector>')

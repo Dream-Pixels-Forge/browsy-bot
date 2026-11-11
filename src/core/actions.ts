@@ -356,6 +356,10 @@ export async function navigatePage(session: Session, url: string): Promise<void>
   await conn.send('Page.navigate', { url });
 }
 
+// --- dialogs (re-exported for convenience) ----------------------------------
+
+export { acceptDialog, dismissDialog, dialogText } from './dialogs.js';
+
 // --- tab management (session-level, uses browser connection) ----------------
 
 export type TabInfo = { id: string; url: string; title?: string; type: string };

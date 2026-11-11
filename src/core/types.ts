@@ -75,6 +75,20 @@ export namespace Page {
       offsetY: number;
     };
   }
+
+  export interface SetInterceptFileChooserDialogParams {
+    enabled: boolean;
+  }
+
+  export interface HandleJavaScriptDialogParams {
+    accept: boolean;
+    dialogIndex?: number;
+    promptText?: string;
+  }
+
+  export interface HandleJavaScriptDialogResult {
+    result?: string;
+  }
 }
 
 // Runtime Domain

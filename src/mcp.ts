@@ -19,6 +19,9 @@ import {
   fullPageScreenshot,
   navigatePage,
   listTabs as sessionListTabs,
+  acceptDialog,
+  dismissDialog,
+  dialogText,
 } from "./core/actions.js";
 import { preflight } from "./core/diagnostics.js";
 import {
@@ -266,6 +269,41 @@ export function createBrowsyServer(): McpServer {
           intervalMs: args.intervalMs,
         });
         return `Found ${args.selector}`;
+      }),
+  );
+
+  server.registerTool(
+    "browsy_dialog",
+    {
+      description:
+        "Accept, dismiss, or read the text of the most recent JavaScript dialog (alert / confirm / prompt) opened by the page.",
+      inputSchema: {
+        action: z
+          .enum(["accept", "dismiss", "text"])
+          .optional()
+          .default("accept")
+          .describe("What to do with the dialog: accept, dismiss, or return its text."),
+        promptText: z
+          .string()
+          .optional()
+          .describe("Text to enter if the dialog is a prompt."),
+        ...addressSchema,
+      },
+    },
+    async (args) =>
+      run(async () => {
+        const url = args.browserUrl ?? DEFAULT_BROWSER_URL;
+        const session = await getSession(url, { targetId: args.targetId });
+        const action = args.action ?? "accept";
+        if (action === "text") {
+          return { text: await dialogText(session) };
+        }
+        if (action === "accept") {
+          const result = await acceptDialog(session, args.promptText);
+          return { accepted: true, result };
+        }
+        await dismissDialog(session);
+        return { accepted: false };
       }),
   );
 
