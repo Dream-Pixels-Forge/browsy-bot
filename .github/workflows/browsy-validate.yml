@@ -1,0 +1,72 @@
+name: browsy-validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      url:
+        description: "URL to validate"
+        required: true
+        default: "https://example.com"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "24"
+          cache: "npm"
+
+      - name: Install browsy-bot
+        run: npm install browsy-bot@latest
+
+      - name: Start Chrome with CDP
+        run: |
+          chromium --remote-debugging-port=9222 --headless --no-sandbox --disable-gpu --disable-dev-shm-usage &
+          sleep 5
+
+      - name: Open a tab
+        run: npx browsy new-tab "${{ github.event.inputs.url || 'https://example.com' }}"
+
+      - name: Run browsy doctor
+        run: npx browsy doctor
+
+      - name: Capture screenshot
+        id: capture
+        run: |
+          npx browsy screenshot --full --format png --output dev-notes/browsy-captures/ci-screenshot.png || true
+          echo "screenshot_path=dev-notes/browsy-captures/ci-screenshot.png" >> $GITHUB_OUTPUT
+
+      - name: Upload screenshot artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: browsy-capture
+          path: dev-notes/browsy-captures/
+          retention-days: 7
+
+      - name: Fail if doctor reports issues
+        run: |
+          npx browsy doctor --json | node -e "
+            const fs = require('fs');
+            let data = '';
+            process.stdin.on('data', c => data += c);
+            process.stdin.on('end', () => {
+              const r = JSON.parse(data);
+              if (!r.ready) {
+                console.error('Browsy doctor reports issues:');
+                for (const s of r.suggestions) console.error(' -', s);
+                process.exit(1);
+              }
+              console.log('Browsy doctor: all checks passed');
+            });
+          "
