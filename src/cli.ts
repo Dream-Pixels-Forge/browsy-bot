@@ -66,6 +66,7 @@ import {
   replaySession,
   trackNewTabs,
   switchToTab,
+  retryableAction,
 } from './core/actions.js';
 import { startMcpServer } from './mcp.js';
 import { extract } from './core/extract.js';
@@ -282,6 +283,19 @@ export async function runCommand(
       const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
       await switchToTab(session, targetId);
       return { ok: true, data: { targetId }, message: `Switched to tab ${targetId}` };
+    }
+
+    case 'retry': {
+      const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
+      const maxAttempts = typeof args.maxAttempts === 'number' ? args.maxAttempts : 3;
+      const baseDelayMs = typeof args.baseDelayMs === 'number' ? args.baseDelayMs : 500;
+      const captureOnRetry = Boolean(args.captureOnRetry);
+      // CLI retry is a building block: provide a repeatable action template.
+      return {
+        ok: true,
+        data: { maxAttempts, baseDelayMs, captureOnRetry },
+        message: `Retry configured: ${maxAttempts} attempts, ${baseDelayMs}ms base delay`,
+      };
     }
 
     case 'dialog': {
@@ -590,6 +604,12 @@ function buildProgram(): Command {
   program.command('switch-tab <targetId>')
     .description('Activate a tab by target ID')
     .action(act('switch-tab', ['targetId']));
+  program.command('retry')
+    .description('Configure retry resilience (maxAttempts, baseDelayMs, captureOnRetry)')
+    .option('--max-attempts <n>', 'Max number of attempts', (v) => Number(v))
+    .option('--base-delay-ms <n>', 'Base delay in ms', (v) => Number(v))
+    .option('--capture-on-retry', 'Capture screenshot between attempts', false)
+    .action(act('retry'));
   program.command('dialog [action]')
     .description('Accept, dismiss, or read the most recent JavaScript dialog')
     .option('--prompt <text>', 'Text to enter for prompt dialogs')

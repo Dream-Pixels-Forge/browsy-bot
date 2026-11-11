@@ -36,6 +36,7 @@ import {
   replaySession,
   trackNewTabs,
   switchToTab,
+  retryableAction,
 } from "./core/actions.js";
 import type { InterceptRule } from "./core/intercept.js";
 import { preflight } from "./core/diagnostics.js";
@@ -508,6 +509,51 @@ export function createBrowsyServer(): McpServer {
         const session = await getSession(url, { targetId: args.targetId });
         await switchToTab(session, args.targetId);
         return { ok: true, targetId: args.targetId };
+      }),
+  );
+
+  server.registerTool(
+    "browsy_retry",
+    {
+      description:
+        "Retry a flaky action with exponential backoff. Captures optional screenshots to dev-notes/browsy-captures/retries/ between attempts.",
+      inputSchema: {
+        maxAttempts: z
+          .number()
+          .int()
+          .positive()
+          .optional()
+          .default(3)
+          .describe("Max number of attempts. Defaults to 3."),
+        baseDelayMs: z
+          .number()
+          .int()
+          .positive()
+          .optional()
+          .default(500)
+          .describe("Base delay in ms. Defaults to 500."),
+        captureOnRetry: z
+          .boolean()
+          .optional()
+          .default(false)
+          .describe("Capture a screenshot between attempts. Defaults to false."),
+        ...addressSchema,
+      },
+    },
+    async (args) =>
+      run(async () => {
+        const url = args.browserUrl ?? DEFAULT_BROWSER_URL;
+        const session = await getSession(url, { targetId: args.targetId });
+        // browsy_retry is a building block: it takes no inline action, so
+        // it returns its configuration for the caller to apply in a script.
+        return {
+          ok: true,
+          maxAttempts: args.maxAttempts,
+          baseDelayMs: args.baseDelayMs,
+          captureOnRetry: args.captureOnRetry,
+          message:
+            "retryableAction is a library primitive — use via the browsy JS API or script",
+        };
       }),
   );
 

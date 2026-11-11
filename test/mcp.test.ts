@@ -97,6 +97,7 @@ const EXPECTED_TOOLS = [
   "browsy_replay",
   "browsy_track_tabs",
   "browsy_switch_tab",
+  "browsy_retry",
   "browsy_dialog",
   "browsy_upload",
   "browsy_download",
@@ -443,6 +444,30 @@ describe("browsy MCP server (in-process)", () => {
     const text = (res.content as Array<{ text?: string }>)[0]?.text ?? "";
     expect(res.isError).toBeFalsy();
     expect(text).toContain("tab-42");
+
+    await client.close();
+    await serverTransport.close();
+  }, 15000);
+
+  it("browsy_retry returns retry configuration", async () => {
+    const server = createBrowsyServer();
+    const client = new Client({ name: "test-client", version: "0.0.0" });
+    const [serverTransport, clientTransport] =
+      InMemoryTransport.createLinkedPair();
+    await Promise.all([
+      server.connect(serverTransport),
+      client.connect(clientTransport),
+    ]);
+
+    const res = await client.callTool({
+      name: "browsy_retry",
+      arguments: { maxAttempts: 5, baseDelayMs: 100, captureOnRetry: true },
+    });
+    const text = (res.content as Array<{ text?: string }>)[0]?.text ?? "";
+    expect(res.isError).toBeFalsy();
+    expect(text).toContain("5");
+    expect(text).toContain("100");
+    expect(text).toContain("true");
 
     await client.close();
     await serverTransport.close();
