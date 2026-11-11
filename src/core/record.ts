@@ -12,7 +12,7 @@
 
 import * as fs from "fs";
 import * as path from "path";
-import { CDPConnection } from "./connection.js";
+import type { CDPConnection } from "./connection.js";
 import type { Session } from "./session.js";
 
 type Conn = CDPConnection;

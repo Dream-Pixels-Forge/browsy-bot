@@ -12,7 +12,7 @@
 // Best-effort: Page.enable failures are swallowed so a single already-
 // enabled session doesn't break the call.
 
-import { CDPConnection } from './connection.js';
+import type { CDPConnection } from './connection.js';
 import type { Session } from './session.js';
 
 type Conn = CDPConnection;

@@ -52,6 +52,31 @@ export namespace Page {
     data: string; // base64-encoded image data
   }
 
+  export interface GetFrameTreeParams { }
+
+  export interface GetFrameTreeResult {
+    frameTree: FrameTree;
+  }
+
+  export interface FrameTree {
+    frame: Frame;
+    childFrames: FrameTree[];
+  }
+
+  export interface Frame {
+    frameId: string;
+    parentFrameId?: string;
+    url: string;
+    securityOrigin?: string;
+    mimeType?: string;
+    name?: string;
+    backendNodeId?: number;
+  }
+
+  export interface SetFocusedFrameParams {
+    frameId: string;
+  }
+
   export interface GetLayoutMetricsResult {
     contentSize: {
       width: number;
@@ -270,6 +295,12 @@ export namespace DOM {
   }
   export interface ResolveNodeResult {
     object: unknown;
+  }
+  export interface GetFrameOwnerParams {
+    objectId: string;
+  }
+  export interface GetFrameOwnerResult {
+    backendNodeId: number;
   }
 }
 
