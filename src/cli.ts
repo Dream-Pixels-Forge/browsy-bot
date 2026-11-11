@@ -57,6 +57,7 @@ import {
   setFileInput,
   setDownloadBehavior,
   waitForNetworkIdle,
+  getAccessibilityTree,
 } from './core/actions.js';
 import { startMcpServer } from './mcp.js';
 import { extract } from './core/extract.js';
@@ -174,6 +175,12 @@ export async function runCommand(
       const timeoutMs = typeof args.timeout === 'number' ? args.timeout : 10000;
       await waitForNetworkIdle(session, { idleMs, timeoutMs });
       return { ok: true, data: { idleMs, timeoutMs }, message: `Network idle after ${idleMs}ms of inactivity` };
+    }
+
+    case 'a11y': {
+      const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
+      const tree = await getAccessibilityTree(session);
+      return { ok: true, data: { tree }, message: `${tree.length} accessibility node${tree.length === 1 ? '' : 's'}` };
     }
 
     case 'dialog': {
@@ -451,6 +458,9 @@ function buildProgram(): Command {
     .option('--idle <ms>', 'ms of inactivity before resolving', (v) => Number(v))
     .option('--timeout <ms>', 'Max wait in ms', (v) => Number(v))
     .action(act('wait-idle'));
+  program.command('a11y')
+    .description('Return the live accessibility tree, simplified per node')
+    .action(act('a11y'));
   program.command('dialog [action]')
     .description('Accept, dismiss, or read the most recent JavaScript dialog')
     .option('--prompt <text>', 'Text to enter for prompt dialogs')

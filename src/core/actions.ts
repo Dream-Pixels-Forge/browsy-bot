@@ -362,6 +362,7 @@ export { acceptDialog, dismissDialog, dialogText } from './dialogs.js';
 export { setFileInput } from './upload.js';
 export { setDownloadBehavior, listDownloads } from './download.js';
 export { waitForNetworkIdle } from './idle.js';
+export { getAccessibilityTree } from './a11y.js';
 
 // --- tab management (session-level, uses browser connection) ----------------
 

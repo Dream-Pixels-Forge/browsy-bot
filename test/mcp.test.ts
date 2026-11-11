@@ -77,6 +77,7 @@ const EXPECTED_TOOLS = [
   "browsy_evaluate",
   "browsy_wait",
   "browsy_wait_idle",
+  "browsy_a11y",
   "browsy_dialog",
   "browsy_upload",
   "browsy_download",
@@ -248,6 +249,28 @@ describe("browsy MCP server (in-process)", () => {
     expect(res.isError).toBeFalsy();
     expect(text).toContain("document.pdf");
     expect(text).toContain("image.png");
+
+    await client.close();
+    await serverTransport.close();
+  }, 15000);
+
+  it("browsy_a11y returns the accessibility tree", async () => {
+    const server = createBrowsyServer();
+    const client = new Client({ name: "test-client", version: "0.0.0" });
+    const [serverTransport, clientTransport] =
+      InMemoryTransport.createLinkedPair();
+    await Promise.all([
+      server.connect(serverTransport),
+      client.connect(clientTransport),
+    ]);
+
+    const res = await client.callTool({
+      name: "browsy_a11y",
+      arguments: {},
+    });
+    const text = (res.content as Array<{ text?: string }>)[0]?.text ?? "";
+    expect(res.isError).toBeFalsy();
+    expect(text).toContain("[]");
 
     await client.close();
     await serverTransport.close();

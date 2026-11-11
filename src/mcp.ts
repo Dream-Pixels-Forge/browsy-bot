@@ -26,6 +26,7 @@ import {
   setDownloadBehavior,
   listDownloads,
   waitForNetworkIdle,
+  getAccessibilityTree,
 } from "./core/actions.js";
 import { preflight } from "./core/diagnostics.js";
 import {
@@ -308,6 +309,21 @@ export function createBrowsyServer(): McpServer {
           timeoutMs: args.timeoutMs,
         });
         return `Network idle after ${args.idleMs ?? 500}ms of inactivity`;
+      }),
+  );
+
+  server.registerTool(
+    "browsy_a11y",
+    {
+      description:
+        "Return the live accessibility tree, simplified to role/name/value/state per node. Useful for a11y audits and deterministic UI assertions.",
+      inputSchema: { ...addressSchema },
+    },
+    async (args) =>
+      run(async () => {
+        const url = args.browserUrl ?? DEFAULT_BROWSER_URL;
+        const session = await getSession(url, { targetId: args.targetId });
+        return getAccessibilityTree(session);
       }),
   );
 
