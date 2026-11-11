@@ -54,6 +54,9 @@ import {
   acceptDialog,
   dismissDialog,
   dialogText,
+  setFileInput,
+  setDownloadBehavior,
+  waitForNetworkIdle,
 } from './core/actions.js';
 import { startMcpServer } from './mcp.js';
 import { extract } from './core/extract.js';
@@ -165,6 +168,14 @@ export async function runCommand(
       return { ok: true, data: { selector }, message: `Found ${selector}` };
     }
 
+    case 'wait-idle': {
+      const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
+      const idleMs = typeof args.idle === 'number' ? args.idle : 500;
+      const timeoutMs = typeof args.timeout === 'number' ? args.timeout : 10000;
+      await waitForNetworkIdle(session, { idleMs, timeoutMs });
+      return { ok: true, data: { idleMs, timeoutMs }, message: `Network idle after ${idleMs}ms of inactivity` };
+    }
+
     case 'dialog': {
       const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
       const action = String(args.action ?? 'accept');
@@ -178,6 +189,29 @@ export async function runCommand(
       }
       await dismissDialog(session);
       return { ok: true, data: { accepted: false }, message: 'Dialog dismissed' };
+    }
+
+    case 'upload': {
+      const selector = String(args.selector ?? '');
+      if (!selector) throw new CliUsageError('upload requires a selector');
+      const fileArg = String(args.file ?? '');
+      const files = fileArg.split(',').map((f) => f.trim()).filter(Boolean);
+      if (files.length === 0) throw new CliUsageError('upload requires at least one file via --file');
+      const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
+      await setFileInput(session, selector, files);
+      return { ok: true, data: { selector, files }, message: `Uploaded ${files.length} file${files.length === 1 ? '' : 's'} to ${selector}` };
+    }
+
+    case 'download': {
+      const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
+      const behavior = String(args.behavior ?? 'allow');
+      const downloadPath = args.downloadPath ? String(args.downloadPath) : undefined;
+      await setDownloadBehavior(session, behavior as 'allow' | 'deny', downloadPath);
+      return {
+        ok: true,
+        data: { behavior, downloadPath },
+        message: `Download behavior set to ${behavior}${downloadPath ? ` (${downloadPath})` : ''}`,
+      };
     }
 
     case 'click': {
@@ -412,10 +446,24 @@ function buildProgram(): Command {
     .option('--timeout <ms>', 'Max wait in ms', (v) => Number(v))
     .option('--interval <ms>', 'Poll interval in ms', (v) => Number(v))
     .action(act('wait', ['selector']));
+  program.command('wait-idle')
+    .description('Wait until the network is idle (no in-flight requests for idleMs)')
+    .option('--idle <ms>', 'ms of inactivity before resolving', (v) => Number(v))
+    .option('--timeout <ms>', 'Max wait in ms', (v) => Number(v))
+    .action(act('wait-idle'));
   program.command('dialog [action]')
     .description('Accept, dismiss, or read the most recent JavaScript dialog')
     .option('--prompt <text>', 'Text to enter for prompt dialogs')
     .action(act('dialog', ['action']));
+  program.command('upload <selector>')
+    .description('Set files on the first <input type="file"> matching selector')
+    .option('--file <paths>', 'Comma-separated file path(s) to upload')
+    .action(act('upload', ['selector']));
+  program.command('download')
+    .description('Configure Chrome download behavior (allow/deny)')
+    .option('--behavior <b>', 'allow or deny', 'allow')
+    .option('--path <dir>', 'Directory to save downloads to')
+    .action(act('download'));
   program.command('click <selector>').description('Click the first matching element').option('--trusted', 'Dispatch a renderer-trusted CDP mouse event (Input.dispatchMouseEvent)').action(act('click', ['selector']));
   program.command('fill <selector> <value>').description('Set a form control value').option('--trusted', 'Type via CDP Input.insertText after focusing the control').action(act('fill', ['selector', 'value']));
   program.command('extract <selector>')

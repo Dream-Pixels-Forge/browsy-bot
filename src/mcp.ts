@@ -22,6 +22,10 @@ import {
   acceptDialog,
   dismissDialog,
   dialogText,
+  setFileInput,
+  setDownloadBehavior,
+  listDownloads,
+  waitForNetworkIdle,
 } from "./core/actions.js";
 import { preflight } from "./core/diagnostics.js";
 import {
@@ -273,6 +277,41 @@ export function createBrowsyServer(): McpServer {
   );
 
   server.registerTool(
+    "browsy_wait_idle",
+    {
+      description:
+        "Wait until the network is idle (no in-flight requests for idleMs), useful after SPA navigations.",
+      inputSchema: {
+        idleMs: z
+          .number()
+          .int()
+          .positive()
+          .optional()
+          .default(500)
+          .describe("ms of inactivity before resolving. Defaults to 500."),
+        timeoutMs: z
+          .number()
+          .int()
+          .positive()
+          .optional()
+          .default(10000)
+          .describe("Max ms to wait before throwing. Defaults to 10000."),
+        ...addressSchema,
+      },
+    },
+    async (args) =>
+      run(async () => {
+        const url = args.browserUrl ?? DEFAULT_BROWSER_URL;
+        const session = await getSession(url, { targetId: args.targetId });
+        await waitForNetworkIdle(session, {
+          idleMs: args.idleMs,
+          timeoutMs: args.timeoutMs,
+        });
+        return `Network idle after ${args.idleMs ?? 500}ms of inactivity`;
+      }),
+  );
+
+  server.registerTool(
     "browsy_dialog",
     {
       description:
@@ -304,6 +343,60 @@ export function createBrowsyServer(): McpServer {
         }
         await dismissDialog(session);
         return { accepted: false };
+      }),
+  );
+
+  server.registerTool(
+    "browsy_upload",
+    {
+      description:
+        "Set files on the first <input type='file'> matching `selector`. Returns ok when the files are set.",
+      inputSchema: {
+        selector: z.string().describe("CSS selector for the file input."),
+        files: z
+          .array(z.string())
+          .describe("Absolute file paths to upload."),
+        ...addressSchema,
+      },
+    },
+    async (args) =>
+      run(async () => {
+        const url = args.browserUrl ?? DEFAULT_BROWSER_URL;
+        const session = await getSession(url, { targetId: args.targetId });
+        await setFileInput(session, args.selector, args.files);
+        return { ok: true, files: args.files, selector: args.selector };
+      }),
+  );
+
+  server.registerTool(
+    "browsy_download",
+    {
+      description:
+        "Configure Chrome download behavior (allow/deny) and optional download path. Download events are captured on the page connection.",
+      inputSchema: {
+        behavior: z
+          .enum(["allow", "deny"])
+          .optional()
+          .default("allow")
+          .describe("Whether to allow or deny downloads."),
+        downloadPath: z
+          .string()
+          .optional()
+          .describe("Directory to save downloads to. Defaults to dev-notes/browsy-captures/downloads."),
+        ...addressSchema,
+      },
+    },
+    async (args) =>
+      run(async () => {
+        const url = args.browserUrl ?? DEFAULT_BROWSER_URL;
+        const session = await getSession(url, { targetId: args.targetId });
+        let downloadPath = args.downloadPath;
+        if (!downloadPath) {
+          const dir = ensureCapturesDir();
+          downloadPath = dir ? path.join(dir, "downloads") : undefined;
+        }
+        await setDownloadBehavior(session, args.behavior ?? "allow", downloadPath);
+        return { ok: true, behavior: args.behavior ?? "allow", downloadPath };
       }),
   );
 

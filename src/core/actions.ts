@@ -359,6 +359,9 @@ export async function navigatePage(session: Session, url: string): Promise<void>
 // --- dialogs (re-exported for convenience) ----------------------------------
 
 export { acceptDialog, dismissDialog, dialogText } from './dialogs.js';
+export { setFileInput } from './upload.js';
+export { setDownloadBehavior, listDownloads } from './download.js';
+export { waitForNetworkIdle } from './idle.js';
 
 // --- tab management (session-level, uses browser connection) ----------------
 

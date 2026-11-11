@@ -41,6 +41,7 @@ vi.mock("../src/core/actions.js", async (importOriginal: any) => {
     screenshot: vi.fn(async () => "aW1n"),
     fullPageScreenshot: vi.fn(async () => "aW1uZw=="),
     listTabs: vi.fn(async () => [{ id: "t1", url: "https://example.com", title: "Example", type: "page" }]),
+    setFileInput: vi.fn(async () => {}),
   };
 });
 
@@ -75,7 +76,10 @@ const EXPECTED_TOOLS = [
   "browsy_screenshot",
   "browsy_evaluate",
   "browsy_wait",
+  "browsy_wait_idle",
   "browsy_dialog",
+  "browsy_upload",
+  "browsy_download",
   "browsy_console",
   "browsy_network_log",
   "browsy_recall",
@@ -221,6 +225,29 @@ describe("browsy MCP server (in-process)", () => {
     expect(text).not.toContain("browsy-captures"); // nothing written to disk
     expect(vi.mocked(ensureCapturesDir)).not.toHaveBeenCalled();
     expect(vi.mocked(writeScreenshot)).not.toHaveBeenCalled();
+
+    await client.close();
+    await serverTransport.close();
+  }, 15000);
+
+  it("browsy_upload sets files on the matching input", async () => {
+    const server = createBrowsyServer();
+    const client = new Client({ name: "test-client", version: "0.0.0" });
+    const [serverTransport, clientTransport] =
+      InMemoryTransport.createLinkedPair();
+    await Promise.all([
+      server.connect(serverTransport),
+      client.connect(clientTransport),
+    ]);
+
+    const res = await client.callTool({
+      name: "browsy_upload",
+      arguments: { selector: 'input[type="file"]', files: ["document.pdf", "image.png"] },
+    });
+    const text = (res.content as Array<{ text?: string }>)[0]?.text ?? "";
+    expect(res.isError).toBeFalsy();
+    expect(text).toContain("document.pdf");
+    expect(text).toContain("image.png");
 
     await client.close();
     await serverTransport.close();
