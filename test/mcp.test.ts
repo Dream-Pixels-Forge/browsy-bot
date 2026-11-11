@@ -29,9 +29,23 @@ vi.mock("../src/core/connection.js", () => ({
     getTargetId = () => "mock-tab";
   },
   createConnection: vi.fn(async () => ({
-    send: vi.fn(async (method: string) => {
+    send: vi.fn(async (method: string, params?: any) => {
       if (method === "Page.navigate") return { frameId: "f", loaderId: "l" };
       if (method === "Runtime.evaluate") return { result: { value: "ok" } };
+      if (method === "DOM.resolveNode") {
+        if (params?.selector === "iframe#widget") return { object: { objectId: "frame-node-1" } };
+        return { object: {} };
+      }
+      if (method === "DOM.getFrameOwner") return { backendNodeId: 1 };
+      if (method === "Page.getFrameTree") {
+        return {
+          frameTree: {
+            frame: { frameId: "root", url: "https://example.com" },
+            childFrames: [{ frame: { frameId: "frame-1", parentFrameId: "root", url: "https://iframe.example.com", backendNodeId: 1 }, childFrames: [] }],
+          },
+        };
+      }
+      if (method === "Page.setFocusedFrame") return {};
       return {};
     }),
     on: vi.fn(),
@@ -98,6 +112,8 @@ const EXPECTED_TOOLS = [
   "browsy_track_tabs",
   "browsy_switch_tab",
   "browsy_retry",
+  "browsy_enter_frame",
+  "browsy_exit_frame",
   "browsy_dialog",
   "browsy_upload",
   "browsy_download",
@@ -467,6 +483,50 @@ describe("browsy MCP server (in-process)", () => {
     expect(res.isError).toBeFalsy();
     expect(text).toContain("5");
     expect(text).toContain("100");
+    expect(text).toContain("true");
+
+    await client.close();
+    await serverTransport.close();
+  }, 15000);
+
+  it("browsy_enter_frame enters an iframe context", async () => {
+    const server = createBrowsyServer();
+    const client = new Client({ name: "test-client", version: "0.0.0" });
+    const [serverTransport, clientTransport] =
+      InMemoryTransport.createLinkedPair();
+    await Promise.all([
+      server.connect(serverTransport),
+      client.connect(clientTransport),
+    ]);
+
+    const res = await client.callTool({
+      name: "browsy_enter_frame",
+      arguments: { selector: "iframe#widget" },
+    });
+    const text = (res.content as Array<{ text?: string }>)[0]?.text ?? "";
+    expect(res.isError).toBeFalsy();
+    expect(text).toContain("frame-1");
+
+    await client.close();
+    await serverTransport.close();
+  }, 15000);
+
+  it("browsy_exit_frame exits to root frame", async () => {
+    const server = createBrowsyServer();
+    const client = new Client({ name: "test-client", version: "0.0.0" });
+    const [serverTransport, clientTransport] =
+      InMemoryTransport.createLinkedPair();
+    await Promise.all([
+      server.connect(serverTransport),
+      client.connect(clientTransport),
+    ]);
+
+    const res = await client.callTool({
+      name: "browsy_exit_frame",
+      arguments: {},
+    });
+    const text = (res.content as Array<{ text?: string }>)[0]?.text ?? "";
+    expect(res.isError).toBeFalsy();
     expect(text).toContain("true");
 
     await client.close();

@@ -37,6 +37,8 @@ import {
   trackNewTabs,
   switchToTab,
   retryableAction,
+  enterFrame,
+  exitFrame,
 } from "./core/actions.js";
 import type { InterceptRule } from "./core/intercept.js";
 import { preflight } from "./core/diagnostics.js";
@@ -554,6 +556,41 @@ export function createBrowsyServer(): McpServer {
           message:
             "retryableAction is a library primitive — use via the browsy JS API or script",
         };
+      }),
+  );
+
+  server.registerTool(
+    "browsy_enter_frame",
+    {
+      description:
+        "Enter an iframe context by CSS selector. Subsequent page-domain commands target the iframe.",
+      inputSchema: {
+        selector: z.string().describe("CSS selector for the iframe element."),
+        ...addressSchema,
+      },
+    },
+    async (args) =>
+      run(async () => {
+        const url = args.browserUrl ?? DEFAULT_BROWSER_URL;
+        const session = await getSession(url, { targetId: args.targetId });
+        const frameId = await enterFrame(session, args.selector);
+        return { ok: true, frameId, selector: args.selector };
+      }),
+  );
+
+  server.registerTool(
+    "browsy_exit_frame",
+    {
+      description:
+        "Exit the current iframe context, returning to the root (top-level) frame.",
+      inputSchema: { ...addressSchema },
+    },
+    async (args) =>
+      run(async () => {
+        const url = args.browserUrl ?? DEFAULT_BROWSER_URL;
+        const session = await getSession(url, { targetId: args.targetId });
+        await exitFrame(session);
+        return { ok: true };
       }),
   );
 

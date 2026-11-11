@@ -67,6 +67,8 @@ import {
   trackNewTabs,
   switchToTab,
   retryableAction,
+  enterFrame,
+  exitFrame,
 } from './core/actions.js';
 import { startMcpServer } from './mcp.js';
 import { extract } from './core/extract.js';
@@ -283,6 +285,20 @@ export async function runCommand(
       const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
       await switchToTab(session, targetId);
       return { ok: true, data: { targetId }, message: `Switched to tab ${targetId}` };
+    }
+
+    case 'enter-frame': {
+      const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
+      const selector = String(args.selector ?? '');
+      if (!selector) throw new CliUsageError('enter-frame requires a selector');
+      const frameId = await enterFrame(session, selector);
+      return { ok: true, data: { frameId, selector }, message: `Entered frame ${frameId}` };
+    }
+
+    case 'exit-frame': {
+      const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
+      await exitFrame(session);
+      return { ok: true, data: {}, message: 'Exited to root frame' };
     }
 
     case 'retry': {
@@ -604,6 +620,12 @@ function buildProgram(): Command {
   program.command('switch-tab <targetId>')
     .description('Activate a tab by target ID')
     .action(act('switch-tab', ['targetId']));
+  program.command('enter-frame <selector>')
+    .description('Enter an iframe context by CSS selector')
+    .action(act('enter-frame', ['selector']));
+  program.command('exit-frame')
+    .description('Exit the current iframe context, returning to the root frame')
+    .action(act('exit-frame'));
   program.command('retry')
     .description('Configure retry resilience (maxAttempts, baseDelayMs, captureOnRetry)')
     .option('--max-attempts <n>', 'Max number of attempts', (v) => Number(v))

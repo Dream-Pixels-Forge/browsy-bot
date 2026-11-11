@@ -369,6 +369,7 @@ export { enableStealth } from './stealth.js';
 export { recordSession, replaySession } from './record.js';
 export { trackNewTabs, switchToTab } from './tabs.js';
 export { retryableAction } from './retry.js';
+export { enterFrame, exitFrame } from './frames.js';
 
 // --- tab management (session-level, uses browser connection) ----------------
 
