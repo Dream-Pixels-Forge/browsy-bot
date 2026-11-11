@@ -60,6 +60,7 @@ import {
   getAccessibilityTree,
   captureBaseline,
   compareScreenshot,
+  setRequestInterception,
 } from './core/actions.js';
 import { startMcpServer } from './mcp.js';
 import { extract } from './core/extract.js';
@@ -205,6 +206,26 @@ export async function runCommand(
         message: result.pass
           ? `Visual match: ${name} (${result.diffPixels}/${result.totalPixels} px differ)`
           : `Visual mismatch: ${name} (${result.diffPixels}/${result.totalPixels} px differ, ratio ${result.diffRatio.toFixed(3)})`,
+      };
+    }
+
+    case 'intercept': {
+      const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
+      const rules: Array<{ urlPattern: string; action: string; response?: unknown }> =
+        Array.isArray(args.rules) ? args.rules : [];
+      if (rules.length === 0) throw new CliUsageError('intercept requires at least one rule');
+      const typedRules = rules.map((r) => ({
+        urlPattern: String(r.urlPattern),
+        action: r.action as 'block' | 'mock',
+        response: r.response as { status?: number; body?: string; headers?: Record<string, string> } | undefined,
+      }));
+      await setRequestInterception(session, typedRules);
+      const blocked = typedRules.filter((r) => r.action === 'block').length;
+      const mocked = typedRules.filter((r) => r.action === 'mock').length;
+      return {
+        ok: true,
+        data: { rules: typedRules.length, blocked, mocked },
+        message: `Interception configured: ${blocked} blocked, ${mocked} mocked`,
       };
     }
 
@@ -493,6 +514,9 @@ function buildProgram(): Command {
     .description('Capture a full-page screenshot and pixel-compare against a baseline')
     .option('--threshold <n>', 'Max fraction of differing pixels to pass (0..1)', (v) => Number(v))
     .action(act('visual-compare', ['name']));
+  program.command('intercept <rules>')
+    .description('Block or mock network requests (JSON array of rules)')
+    .action(act('intercept', ['rules']));
   program.command('dialog [action]')
     .description('Accept, dismiss, or read the most recent JavaScript dialog')
     .option('--prompt <text>', 'Text to enter for prompt dialogs')

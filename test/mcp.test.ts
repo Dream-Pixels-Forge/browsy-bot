@@ -80,6 +80,7 @@ const EXPECTED_TOOLS = [
   "browsy_a11y",
   "browsy_visual_baseline",
   "browsy_visual_compare",
+  "browsy_intercept",
   "browsy_dialog",
   "browsy_upload",
   "browsy_download",
@@ -273,6 +274,34 @@ describe("browsy MCP server (in-process)", () => {
     const text = (res.content as Array<{ text?: string }>)[0]?.text ?? "";
     expect(res.isError).toBeFalsy();
     expect(text).toContain("[]");
+
+    await client.close();
+    await serverTransport.close();
+  }, 15000);
+
+  it("browsy_intercept configures block + mock rules", async () => {
+    const server = createBrowsyServer();
+    const client = new Client({ name: "test-client", version: "0.0.0" });
+    const [serverTransport, clientTransport] =
+      InMemoryTransport.createLinkedPair();
+    await Promise.all([
+      server.connect(serverTransport),
+      client.connect(clientTransport),
+    ]);
+
+    const res = await client.callTool({
+      name: "browsy_intercept",
+      arguments: {
+        rules: [
+          { urlPattern: "*://*.tracker.com/*", action: "block" },
+          { urlPattern: "*://api.example.com/*", action: "mock", response: { status: 200, body: "{}" } },
+        ],
+      },
+    });
+    const text = (res.content as Array<{ text?: string }>)[0]?.text ?? "";
+    expect(res.isError).toBeFalsy();
+    expect(text).toContain("blocked");
+    expect(text).toContain("mocked");
 
     await client.close();
     await serverTransport.close();

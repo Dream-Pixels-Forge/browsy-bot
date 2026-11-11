@@ -29,7 +29,10 @@ import {
   getAccessibilityTree,
   captureBaseline,
   compareScreenshot,
+  setRequestInterception,
+  getPausedRequests,
 } from "./core/actions.js";
+import type { InterceptRule } from "./core/intercept.js";
 import { preflight } from "./core/diagnostics.js";
 import {
   ensureCapturesDir,
@@ -373,6 +376,43 @@ export function createBrowsyServer(): McpServer {
           threshold: args.threshold,
         });
         return { ...result, name: args.name };
+      }),
+  );
+
+  server.registerTool(
+    "browsy_intercept",
+    {
+      description:
+        "Block or mock network requests. Block rules use Network.setBlockedURLs; mock rules intercept Fetch.requestPaused and fulfill with a canned response.",
+      inputSchema: {
+        rules: z
+          .array(
+            z.object({
+              urlPattern: z.string().describe("URL pattern (supports * wildcard)"),
+              action: z.enum(["block", "mock"]),
+              response: z
+                .object({
+                  status: z.number().optional(),
+                  body: z.string().optional(),
+                  headers: z
+                    .record(z.string(), z.string())
+                    .optional(),
+                })
+                .optional(),
+            })
+          )
+          .describe("Interception rules"),
+        ...addressSchema,
+      },
+    },
+    async (args) =>
+      run(async () => {
+        const url = args.browserUrl ?? DEFAULT_BROWSER_URL;
+        const session = await getSession(url, { targetId: args.targetId });
+        await setRequestInterception(session, args.rules as InterceptRule[]);
+        const blocked = args.rules.filter((r) => r.action === "block").length;
+        const mocked = args.rules.filter((r) => r.action === "mock").length;
+        return { ok: true, rules: args.rules.length, blocked, mocked };
       }),
   );
 
