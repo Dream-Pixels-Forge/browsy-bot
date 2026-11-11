@@ -2,8 +2,9 @@
 // no network / subprocess is touched — the assertions cover report assembly,
 // suggestions, and the binary-resolution precedence.
 import { describe, it, expect, vi, afterEach } from "vitest";
-import { doctor, findBrowserBinary } from "../src/core/diagnostics.js";
+import { doctor, findBrowserBinary, preflight } from "../src/core/diagnostics.js";
 import type { DoctorProbes } from "../src/core/diagnostics.js";
+import type { PreflightResult } from "../src/core/diagnostics.js";
 
 function makeProbes(over: Partial<DoctorProbes> = {}): DoctorProbes {
   return {
@@ -110,5 +111,43 @@ describe("findBrowserBinary", () => {
     const found = findBrowserBinary();
     // Deterministic assertion: the call succeeded and returned a string-or-undefined.
     expect(found === undefined || typeof found === "string").toBe(true);
+  });
+});
+
+describe("preflight", () => {
+  it("is ok when the endpoint is reachable with a page target", async () => {
+    const r = await preflight("ws://localhost:9222", {
+      probes: makeProbes(),
+    });
+    expect(r.ok).toBe(true);
+    expect(r.reachable).toBe(true);
+    expect(r.pageTargets).toBe(1);
+    expect(r.issues).toHaveLength(0);
+  });
+
+  it("reports an actionable issue when the endpoint is unreachable", async () => {
+    const r = await preflight("ws://localhost:9222", {
+      probes: makeProbes({
+        getVersion: vi.fn(async () => {
+          throw new Error("ECONNREFUSED");
+        }),
+      }),
+    });
+    expect(r.ok).toBe(false);
+    expect(r.reachable).toBe(false);
+    expect(r.endpointError).toMatch(/ECONNREFUSED/);
+    expect(r.issues.some((i) => i.includes("ensure-browser"))).toBe(true);
+  });
+
+  it("reports an actionable issue when no page target is open", async () => {
+    const r = await preflight("ws://localhost:9222", {
+      probes: makeProbes({
+        listTargets: vi.fn(async () => []),
+      }),
+    });
+    expect(r.ok).toBe(false);
+    expect(r.reachable).toBe(true);
+    expect(r.pageTargets).toBe(0);
+    expect(r.issues.some((i) => i.includes("new-tab"))).toBe(true);
   });
 });

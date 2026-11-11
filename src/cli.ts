@@ -35,7 +35,6 @@
  */
 
 import { Command } from 'commander';
-import * as fs from 'fs';
 import * as path from 'path';
 import {
   navigate as oneShotNavigate,
@@ -56,6 +55,13 @@ import {
 import { startMcpServer } from './mcp.js';
 import { extract } from './core/extract.js';
 import { doctor } from './core/diagnostics.js';
+import { preflight } from './core/diagnostics.js';
+import {
+  ensureCapturesDir,
+  writeScreenshot,
+  tryAutoSave,
+  mayAutosave,
+} from './core/capture.js';
 import { ensureBrowser, stopBrowser } from './core/browser.js';
 
 const DEFAULT_BROWSER_URL = () => process.env.BROWSY_URL ?? 'ws://localhost:9222';
@@ -96,6 +102,8 @@ export async function runCommand(
     }
 
     case 'screenshot': {
+      const health = await preflight(ctx.browserUrl);
+      if (!health.ok) throw new Error(health.issues.join(" "));
       const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
       const options = {
         format: (args.format as 'png' | 'jpeg' | undefined) ?? 'png',
@@ -104,14 +112,36 @@ export async function runCommand(
       const data = args.full
         ? await fullPageScreenshot(session, options)
         : await sessionScreenshot(session, options);
+      let savedTo: string | undefined;
+      let saveError: string | undefined;
       if (args.output) {
+        // Explicit output path: the user asked for a specific file, so a
+        // write failure must surface.
         const out = path.isAbsolute(String(args.output))
           ? String(args.output)
           : path.join(process.cwd(), String(args.output));
-        fs.writeFileSync(out, Buffer.from(data, 'base64'));
-        return { ok: true, data: { savedTo: out }, message: `Screenshot saved to ${out}` };
+        savedTo = writeScreenshot(data, out);
+      } else if (mayAutosave()) {
+        // Auto-save only with explicit user permission (env var). Never
+        // crashes the call when the project dir isn't writable.
+        const dir = ensureCapturesDir();
+        if (dir) {
+          const result = tryAutoSave(data, dir, options.format);
+          savedTo = result.savedTo;
+          saveError = result.error;
+        }
       }
-      return { ok: true, data: { base64: data, format: options.format }, message: 'Screenshot captured' };
+      return {
+        ok: true,
+        data: savedTo
+          ? { savedTo, format: options.format }
+          : { base64: data, format: options.format },
+        message: savedTo
+          ? `Screenshot saved to ${savedTo}`
+          : saveError
+            ? `Screenshot captured (auto-save failed: ${saveError})`
+            : 'Screenshot captured',
+      };
     }
 
     case 'eval': {

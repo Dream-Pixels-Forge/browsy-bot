@@ -36,7 +36,7 @@ import {
 } from './core/actions.js';
 import { getSession, dropSession, closeAllSessions } from './core/session.js';
 import { extract } from './core/extract.js';
-import { doctor, probeVersion, findBrowserBinary, checkMemorius } from './core/diagnostics.js';
+import { doctor, probeVersion, findBrowserBinary, checkMemorius, preflight } from './core/diagnostics.js';
 import {
   ensureBrowser,
   launchBrowser,
@@ -45,6 +45,12 @@ import {
   resolveBrowserBinary,
   waitForReady,
 } from './core/browser.js';
+import {
+  findProjectRoot,
+  ensureCapturesDir,
+  captureFileName,
+  writeScreenshot,
+} from './core/capture.js';
 
 // Re-export the one-shot convenience helpers + domain classes.
 export { navigate, captureScreenshot, evaluate, createConnection, CDPConnection };
@@ -57,7 +63,7 @@ export { getSession, dropSession, closeAllSessions };
 // Structured data extraction (query-selector -> record[]).
 export { extract } from './core/extract.js';
 // Diagnostics: `doctor` report + the individual probes behind it.
-export { doctor, probeVersion, findBrowserBinary, checkMemorius } from './core/diagnostics.js';
+export { doctor, probeVersion, findBrowserBinary, checkMemorius, preflight } from './core/diagnostics.js';
 export type {
   DoctorReport,
   DoctorOptions,
@@ -65,6 +71,7 @@ export type {
   EndpointProbe,
   BinaryProbe,
   MemoriusProbe,
+  PreflightResult,
 } from './core/diagnostics.js';
 // Browser lifecycle: launch / stop / ensure a dedicated CDP browser.
 export { ensureBrowser, launchBrowser, stopBrowser, buildBrowserArgs, resolveBrowserBinary, waitForReady } from './core/browser.js';
@@ -74,6 +81,17 @@ export type {
   StoppedBrowser,
   EnsuredBrowser,
 } from './core/browser.js';
+
+// Project-scoped capture storage: <root>/dev-notes/browsy-captures.
+export {
+  findProjectRoot,
+  ensureCapturesDir,
+  captureFileName,
+  writeScreenshot,
+  mayAutosave,
+  tryAutoSave,
+} from './core/capture.js';
+export type { ScreenshotOptions } from './core/actions.js';
 
 // Main Browsy class — a thin object holding cached domain wrappers over one
 // CDP connection.

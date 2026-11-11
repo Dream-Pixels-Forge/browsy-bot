@@ -20,8 +20,15 @@ import {
   navigatePage,
   listTabs as sessionListTabs,
 } from "./core/actions.js";
+import { preflight } from "./core/diagnostics.js";
+import {
+  ensureCapturesDir,
+  captureFileName,
+  writeScreenshot,
+  tryAutoSave,
+  mayAutosave,
+} from "./core/capture.js";
 import { recall, getMemoriusShell } from "./memorius.js";
-import * as fs from "fs";
 import * as path from "path";
 
 const DEFAULT_BROWSER_URL =
@@ -164,6 +171,9 @@ export function createBrowsyServer(): McpServer {
     async (args) =>
       run(async () => {
         const url = args.browserUrl ?? DEFAULT_BROWSER_URL;
+        // Fail fast with an actionable message when the browser isn't usable.
+        const health = await preflight(url);
+        if (!health.ok) throw new Error(health.issues.join(" "));
         const session = await getSession(url, { targetId: args.targetId });
         const options = {
           format: args.format ?? "png",
@@ -172,14 +182,32 @@ export function createBrowsyServer(): McpServer {
         const data = args.fullPage
           ? await fullPageScreenshot(session, options)
           : await sessionScreenshot(session, options);
+        let savedTo: string | undefined;
+        let saveError: string | undefined;
         if (args.outputPath) {
+          // Explicit output path: the user asked for a specific file, so a
+          // write failure must surface.
           const out = path.isAbsolute(args.outputPath)
             ? args.outputPath
             : path.join(process.cwd(), args.outputPath);
-          fs.writeFileSync(out, Buffer.from(data, "base64"));
-          return { savedTo: out, format: options.format, bytes: Math.round(data.length * 0.75) };
+          savedTo = writeScreenshot(data, out);
+        } else if (mayAutosave()) {
+          // Auto-save only with explicit user permission (env var). Never
+          // crashes the call when the project dir isn't writable.
+          const dir = ensureCapturesDir();
+          if (dir) {
+            const result = tryAutoSave(data, dir, options.format);
+            savedTo = result.savedTo;
+            saveError = result.error;
+          }
         }
-        return { format: options.format, base64: data };
+        return {
+          format: options.format,
+          base64: data,
+          savedTo,
+          saveError,
+          bytes: Math.round(data.length * 0.75),
+        };
       }),
   );
 

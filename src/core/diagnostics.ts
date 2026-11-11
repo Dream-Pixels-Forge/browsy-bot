@@ -256,3 +256,62 @@ export async function doctor(
     ready: endpoint.reachable && endpoint.pageTargets > 0,
   };
 }
+
+// --- preflight --------------------------------------------------------------
+
+/** Result of a lightweight "is browsy usable right now?" preflight check. */
+export interface PreflightResult {
+  /** True when the endpoint is reachable and at least one page target exists. */
+  ok: boolean;
+  /** Human-readable, actionable problem descriptions (empty when ok). */
+  issues: string[];
+  /** Whether the CDP endpoint answered. */
+  reachable: boolean;
+  /** Number of page targets currently open. */
+  pageTargets: number;
+  /** Error text when the endpoint is unreachable. */
+  endpointError?: string;
+}
+
+export interface PreflightOptions {
+  /** Inject probes (unit tests). Only getVersion/listTargets are used. */
+  probes?: Partial<Pick<DoctorProbes, 'getVersion' | 'listTargets'>>;
+}
+
+/**
+ * Fast health check run before an action: the CDP endpoint must answer and
+ * at least one page target must be open. No subprocess (memorius) is
+ * touched, so it is cheap enough to run ahead of a capture or navigation.
+ * Issues are returned as actionable messages rather than cryptic CDP errors.
+ */
+export async function preflight(
+  browserUrl: string,
+  options: PreflightOptions = {},
+): Promise<PreflightResult> {
+  const probes: DoctorProbes = { ...defaultProbes(), ...options.probes };
+  const issues: string[] = [];
+  let reachable = false;
+  let pageTargets = 0;
+  let endpointError: string | undefined;
+  try {
+    await probes.getVersion(browserUrl);
+    const targets = await probes.listTargets(browserUrl);
+    reachable = true;
+    pageTargets = targets.filter((t) => t.type === 'page').length;
+  } catch (e: any) {
+    endpointError = e instanceof Error ? e.message : String(e);
+  }
+  if (!reachable) {
+    issues.push(
+      `CDP endpoint ${browserUrl} is unreachable: ${endpointError}. ` +
+        `Launch Chrome with remote debugging (e.g. "browsy ensure-browser") ` +
+        `or pass a different --url.`,
+    );
+  } else if (pageTargets === 0) {
+    issues.push(
+      'Endpoint is reachable but no page target is open. Open one: ' +
+        `"browsy new-tab https://example.com".`,
+    );
+  }
+  return { ok: issues.length === 0, issues, reachable, pageTargets, endpointError };
+}

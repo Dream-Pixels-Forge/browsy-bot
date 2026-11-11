@@ -1,6 +1,9 @@
 // Unit tests for the core actions layer. The CDP transport is faked
 // (a method-aware fake connection); the real action logic runs.
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, afterEach } from "vitest";
+import * as fs from "fs";
+import * as os from "os";
+import * as path from "path";
 import {
   click,
   fill,
@@ -120,6 +123,10 @@ function makeAbsentSession() {
   return session;
 }
 
+afterEach(() => {
+  fs.rmSync(path.join(os.tmpdir(), "browsy-action-test"), { recursive: true, force: true });
+});
+
 describe("core actions", () => {
   it("click resolves true when the element is found", async () => {
     const { session } = makeSession();
@@ -163,6 +170,14 @@ describe("core actions", () => {
   it("screenshot returns the base64 payload", async () => {
     const { session } = makeSession();
     await expect(screenshot(session)).resolves.toBe("aW1n");
+  });
+
+  it("screenshot writes the file when outputPath is given", async () => {
+    const { session } = makeSession();
+    const file = path.join(os.tmpdir(), "browsy-action-test", "cap.png");
+    const data = await screenshot(session, { outputPath: file });
+    expect(data).toBe("aW1n");
+    expect(fs.readFileSync(file)).toEqual(Buffer.from("aW1n", "base64"));
   });
 
   it("fullPageScreenshot captures with a content-size clip", async () => {

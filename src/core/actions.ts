@@ -17,6 +17,7 @@ import { CDPConnection } from './connection.js';
 import { Page, Runtime, Target, TargetListEntry } from './types.js';
 import type { Session } from './session.js';
 import { createConnection, listTargets } from './connection.js';
+import { writeScreenshot } from './capture.js';
 
 type Conn = CDPConnection;
 
@@ -300,13 +301,22 @@ export async function currentUrl(session: Session): Promise<string> {
 
 // --- capture / navigation ---------------------------------------------------
 
+/** Options shared by `screenshot` and `fullPageScreenshot`. */
+export interface ScreenshotOptions {
+  format?: 'png' | 'jpeg';
+  quality?: number;
+  /** Write the image to this file path (parents created) in addition to
+   * returning the base64 payload. */
+  outputPath?: string;
+}
+
 /**
  * Capture a full-page screenshot (scroll height, not just the viewport).
  * Returns the base64-encoded PNG.
  */
 export async function fullPageScreenshot(
   session: Session,
-  options?: { format?: 'png' | 'jpeg'; quality?: number },
+  options: ScreenshotOptions = {},
 ): Promise<string> {
   const conn = await page(session);
   const metrics = await conn.send<Page.GetLayoutMetricsResult>('Page.getLayoutMetrics');
@@ -318,19 +328,25 @@ export async function fullPageScreenshot(
     clip: { x: 0, y: 0, width, height, scale: 1 },
     captureBeyondViewport: true,
   });
+  if (options.outputPath) {
+    writeScreenshot(result.data, options.outputPath);
+  }
   return result.data;
 }
 
 /** Capture the viewport-only screenshot. Returns base64 PNG. */
 export async function screenshot(
   session: Session,
-  options?: { format?: 'png' | 'jpeg'; quality?: number },
+  options: ScreenshotOptions = {},
 ): Promise<string> {
   const conn = await page(session);
   const result = await conn.send<Page.CaptureScreenshotResult>('Page.captureScreenshot', {
     format: options?.format ?? 'png',
     quality: options?.quality,
   });
+  if (options.outputPath) {
+    writeScreenshot(result.data, options.outputPath);
+  }
   return result.data;
 }
 

@@ -9,6 +9,7 @@
 //   extract.ts     structured data pull (query-selector -> record[])
 //   diagnostics.ts `doctor` — endpoint / binary / memorius probes
 //   browser.ts     ensure-browser / stop-browser lifecycle
+//   capture.ts     project-scoped screenshot storage (dev-notes/browsy-captures)
 
 export * from './types.js';
 export * from './connection.js';
@@ -18,3 +19,4 @@ export * from './actions.js';
 export * from './extract.js';
 export * from './diagnostics.js';
 export * from './browser.js';
+export * from './capture.js';

@@ -3,10 +3,17 @@
 // Chrome is needed. Verifies: (1) the client sees all 9 browsy tools via
 // tools/list, and (2) tools/call returns structured text for a couple of
 // the tools.
-import { describe, it, expect, vi } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { InMemoryTransport } from "@modelcontextprotocol/sdk/inMemory.js";
 import { createBrowsyServer } from "../src/mcp.js";
+import { ensureCapturesDir, writeScreenshot, mayAutosave } from "../src/core/capture.js";
+
+// Clear mock call counts between tests so permission-gating assertions are
+// not polluted by earlier tests.
+beforeEach(() => {
+  vi.clearAllMocks();
+});
 
 // Mock the whole CDP transport so no real WebSocket / HTTP is needed.
 vi.mock("../src/core/connection.js", () => ({
@@ -36,6 +43,18 @@ vi.mock("../src/core/actions.js", async (importOriginal: any) => {
     listTabs: vi.fn(async () => [{ id: "t1", url: "https://example.com", title: "Example", type: "page" }]),
   };
 });
+
+vi.mock("../src/core/capture.js", () => ({
+  ensureCapturesDir: vi.fn(() => "/tmp/browsy-mcp-test/dev-notes/browsy-captures"),
+  captureFileName: vi.fn(() => "browsy-capture-20240101-000000-000.png"),
+  writeScreenshot: vi.fn(() => "/tmp/browsy-mcp-test/dev-notes/browsy-captures/browsy-capture-20240101-000000-000.png"),
+  mayAutosave: vi.fn(() => false),
+  tryAutoSave: vi.fn(() => ({ savedTo: "/tmp/browsy-mcp-test/dev-notes/browsy-captures/browsy-capture-20240101-000000-000.png" })),
+}));
+
+vi.mock("../src/core/diagnostics.js", () => ({
+  preflight: vi.fn(async () => ({ ok: true, issues: [], reachable: true, pageTargets: 1 })),
+}));
 
 vi.mock("../src/memorius.js", async (importOriginal: any) => {
   const actual = await importOriginal();
@@ -121,6 +140,64 @@ describe("browsy MCP server (in-process)", () => {
     const text = (res.content as Array<{ text?: string }>)[0]?.text ?? "";
     expect(res.isError).toBeFalsy();
     expect(text).toContain("t1");
+
+    await client.close();
+    await serverTransport.close();
+  }, 15000);
+
+  it("browsy_screenshot auto-saves to the captures dir only with permission", async () => {
+    // Grant permission via env var + mock the gate to true.
+    process.env.BROWSY_AUTOSAVE_CAPTURES = "1";
+    vi.mocked(mayAutosave).mockReturnValue(true);
+    try {
+      const server = createBrowsyServer();
+      const client = new Client({ name: "test-client", version: "0.0.0" });
+      const [serverTransport, clientTransport] =
+        InMemoryTransport.createLinkedPair();
+      await Promise.all([
+        server.connect(serverTransport),
+        client.connect(clientTransport),
+      ]);
+
+      const res = await client.callTool({
+        name: "browsy_screenshot",
+        arguments: { fullPage: true },
+      });
+      const text = (res.content as Array<{ text?: string }>)[0]?.text ?? "";
+      expect(res.isError).toBeFalsy();
+      expect(text).toContain("browsy-captures");
+      expect(text).toContain("aW1uZw=="); // base64 still returned
+
+      await client.close();
+      await serverTransport.close();
+    } finally {
+      delete process.env.BROWSY_AUTOSAVE_CAPTURES;
+    }
+  });
+
+  it("browsy_screenshot does not auto-save without permission", async () => {
+    // Deny permission explicitly (defend against mock state leaking between tests).
+    delete process.env.BROWSY_AUTOSAVE_CAPTURES;
+    vi.mocked(mayAutosave).mockReturnValue(false);
+    const server = createBrowsyServer();
+    const client = new Client({ name: "test-client", version: "0.0.0" });
+    const [serverTransport, clientTransport] =
+      InMemoryTransport.createLinkedPair();
+    await Promise.all([
+      server.connect(serverTransport),
+      client.connect(clientTransport),
+    ]);
+
+    const res = await client.callTool({
+      name: "browsy_screenshot",
+      arguments: { fullPage: true },
+    });
+    const text = (res.content as Array<{ text?: string }>)[0]?.text ?? "";
+    expect(res.isError).toBeFalsy();
+    expect(text).toContain("aW1uZw=="); // base64 still returned
+    expect(text).not.toContain("browsy-captures"); // nothing written to disk
+    expect(vi.mocked(ensureCapturesDir)).not.toHaveBeenCalled();
+    expect(vi.mocked(writeScreenshot)).not.toHaveBeenCalled();
 
     await client.close();
     await serverTransport.close();
