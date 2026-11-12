@@ -119,6 +119,9 @@ const EXPECTED_TOOLS = [
   "browsy_enter_frame",
   "browsy_exit_frame",
   "browsy_performance",
+  "browsy_emulate_device",
+  "browsy_set_geolocation",
+  "browsy_set_device_orientation",
   "browsy_dialog",
   "browsy_upload",
   "browsy_download",
@@ -555,6 +558,83 @@ describe("browsy MCP server (in-process)", () => {
     const text = (res.content as Array<{ text?: string }>)[0]?.text ?? "";
     expect(res.isError).toBeFalsy();
     expect(text).toContain("FirstContentfulPaint");
+
+    await client.close();
+    await serverTransport.close();
+  }, 15000);
+
+  it("browsy_emulate_device emulates a mobile device", async () => {
+    const server = createBrowsyServer();
+    const client = new Client({ name: "test-client", version: "0.0.0" });
+    const [serverTransport, clientTransport] =
+      InMemoryTransport.createLinkedPair();
+    await Promise.all([
+      server.connect(serverTransport),
+      client.connect(clientTransport),
+    ]);
+
+    const res = await client.callTool({
+      name: "browsy_emulate_device",
+      arguments: {
+        device: {
+          name: "iPhone15",
+          width: 390,
+          height: 844,
+          deviceScaleFactor: 3,
+          mobile: true,
+        },
+      },
+    });
+    const text = (res.content as Array<{ text?: string }>)[0]?.text ?? "";
+    expect(res.isError).toBeFalsy();
+    expect(text).toContain("390");
+    expect(text).toContain("844");
+
+    await client.close();
+    await serverTransport.close();
+  }, 15000);
+
+  it("browsy_set_geolocation sets geolocation override", async () => {
+    const server = createBrowsyServer();
+    const client = new Client({ name: "test-client", version: "0.0.0" });
+    const [serverTransport, clientTransport] =
+      InMemoryTransport.createLinkedPair();
+    await Promise.all([
+      server.connect(serverTransport),
+      client.connect(clientTransport),
+    ]);
+
+    const res = await client.callTool({
+      name: "browsy_set_geolocation",
+      arguments: { latitude: 52.52, longitude: 13.405, accuracy: 10 },
+    });
+    const text = (res.content as Array<{ text?: string }>)[0]?.text ?? "";
+    expect(res.isError).toBeFalsy();
+    expect(text).toContain("52.52");
+    expect(text).toContain("13.405");
+
+    await client.close();
+    await serverTransport.close();
+  }, 15000);
+
+  it("browsy_set_device_orientation sets orientation", async () => {
+    const server = createBrowsyServer();
+    const client = new Client({ name: "test-client", version: "0.0.0" });
+    const [serverTransport, clientTransport] =
+      InMemoryTransport.createLinkedPair();
+    await Promise.all([
+      server.connect(serverTransport),
+      client.connect(clientTransport),
+    ]);
+
+    const res = await client.callTool({
+      name: "browsy_set_device_orientation",
+      arguments: { alpha: 0, beta: 45, gamma: 0 },
+    });
+    const text = (res.content as Array<{ text?: string }>)[0]?.text ?? "";
+    expect(res.isError).toBeFalsy();
+    expect(text).toContain("0");
+    expect(text).toContain("45");
 
     await client.close();
     await serverTransport.close();

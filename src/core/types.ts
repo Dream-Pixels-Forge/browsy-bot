@@ -184,6 +184,58 @@ export namespace Performance {
   }
 }
 
+// Emulation Domain
+export namespace Emulation {
+  export interface SetDeviceMetricsOverrideParams {
+    width: number;
+    height: number;
+    deviceScaleFactor: number;
+    mobile?: boolean;
+    fitViewport?: boolean;
+    screenWidth?: number;
+    screenHeight?: number;
+    screenOrientation?: ScreenOrientation;
+  }
+
+  export interface ScreenOrientation {
+    type: 'portraitPrimary' | 'portraitSecondary' | 'landscapePrimary' | 'landscapeSecondary';
+    angle: number;
+  }
+
+  export interface SetDeviceMetricsOverrideResult {}
+
+  export interface SetUserAgentOverrideParams {
+    userAgent: string;
+    acceptLanguage?: string;
+    platform?: string;
+  }
+
+  export interface SetUserAgentOverrideResult {}
+
+  export interface SetTouchEmulationEnabledParams {
+    enabled: boolean;
+    configuration?: 'mobile' | 'desktop';
+  }
+
+  export interface SetTouchEmulationEnabledResult {}
+
+  export interface SetGeolocationOverrideParams {
+    latitude: number;
+    longitude: number;
+    accuracy?: number;
+  }
+
+  export interface SetGeolocationOverrideResult {}
+
+  export interface SetDeviceOrientationOverrideParams {
+    alpha: number;
+    beta: number;
+    gamma: number;
+  }
+
+  export interface SetDeviceOrientationOverrideResult {}
+}
+
 // Accessibility Domain
 export namespace Accessibility {
   export interface GetFullAXTreeParams {

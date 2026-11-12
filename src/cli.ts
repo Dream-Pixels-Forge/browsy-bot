@@ -71,6 +71,9 @@ import {
   exitFrame,
   getPerformanceMetrics,
   checkPerformanceBudget,
+  emulateDevice,
+  setGeolocation,
+  setDeviceOrientation,
 } from './core/actions.js';
 import { startMcpServer } from './mcp.js';
 import { extract } from './core/extract.js';
@@ -320,6 +323,41 @@ export async function runCommand(
       const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
       const metrics = await getPerformanceMetrics(session);
       return { ok: true, data: { metrics }, message: `${Object.keys(metrics).length} performance metric${Object.keys(metrics).length === 1 ? '' : 's'} captured` };
+    }
+
+    case 'emulate-device': {
+      const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
+      const device = String(args.device ?? '');
+      if (!device) throw new CliUsageError('emulate-device requires a device JSON');
+      let deviceObj: { width: number; height: number; deviceScaleFactor?: number; mobile?: boolean; userAgent?: string };
+      try {
+        deviceObj = JSON.parse(device);
+      } catch {
+        throw new CliUsageError('emulate-device requires valid JSON for device');
+      }
+      if (!deviceObj.width || !deviceObj.height) throw new CliUsageError('emulate-device requires width and height');
+      await emulateDevice(session, deviceObj);
+      return { ok: true, data: { device: deviceObj }, message: `Emulated device ${deviceObj.width}x${deviceObj.height}` };
+    }
+
+    case 'set-geolocation': {
+      const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
+      const latitude = typeof args.latitude === 'number' ? args.latitude : Number(args.latitude);
+      const longitude = typeof args.longitude === 'number' ? args.longitude : Number(args.longitude);
+      const accuracy = typeof args.accuracy === 'number' ? args.accuracy : Number(args.accuracy ?? 10);
+      if (Number.isNaN(latitude) || Number.isNaN(longitude)) throw new CliUsageError('set-geolocation requires latitude and longitude');
+      await setGeolocation(session, latitude, longitude, accuracy);
+      return { ok: true, data: { latitude, longitude, accuracy }, message: `Geolocation set to ${latitude}, ${longitude}` };
+    }
+
+    case 'set-device-orientation': {
+      const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
+      const alpha = typeof args.alpha === 'number' ? args.alpha : Number(args.alpha);
+      const beta = typeof args.beta === 'number' ? args.beta : Number(args.beta);
+      const gamma = typeof args.gamma === 'number' ? args.gamma : Number(args.gamma);
+      if (Number.isNaN(alpha) || Number.isNaN(beta) || Number.isNaN(gamma)) throw new CliUsageError('set-device-orientation requires alpha, beta, gamma');
+      await setDeviceOrientation(session, alpha, beta, gamma);
+      return { ok: true, data: { alpha, beta, gamma }, message: `Device orientation set to ${alpha},${beta},${gamma}` };
     }
 
     case 'dialog': {
@@ -643,6 +681,16 @@ function buildProgram(): Command {
   program.command('performance')
     .description('Capture Core Web Vitals and navigation timing metrics')
     .action(act('performance'));
+  program.command('emulate-device <deviceJson>')
+    .description('Emulate a mobile device (device metrics, user agent, touch)')
+    .action(act('emulate-device', ['deviceJson']));
+  program.command('set-geolocation <latitude> <longitude>')
+    .description('Override geolocation reported to the page')
+    .option('--accuracy <m>', 'Accuracy in meters', (v) => Number(v))
+    .action(act('set-geolocation', ['latitude', 'longitude']));
+  program.command('set-device-orientation <alpha> <beta> <gamma>')
+    .description('Override device orientation (degrees)')
+    .action(act('set-device-orientation', ['alpha', 'beta', 'gamma']));
   program.command('dialog [action]')
     .description('Accept, dismiss, or read the most recent JavaScript dialog')
     .option('--prompt <text>', 'Text to enter for prompt dialogs')

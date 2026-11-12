@@ -372,6 +372,8 @@ export { retryableAction } from './retry.js';
 export { enterFrame, exitFrame } from './frames.js';
 export { getPerformanceMetrics } from './performance.js';
 export { checkPerformanceBudget } from './perf-budget.js';
+export { emulateDevice, setGeolocation, setDeviceOrientation, DEVICE_PROFILES } from './mobile.js';
+export type { DeviceProfile } from './mobile.js';
 
 // --- tab management (session-level, uses browser connection) ----------------
 

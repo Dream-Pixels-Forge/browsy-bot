@@ -41,6 +41,9 @@ import {
   exitFrame,
   getPerformanceMetrics,
   checkPerformanceBudget,
+  emulateDevice,
+  setGeolocation,
+  setDeviceOrientation,
 } from "./core/actions.js";
 import type { InterceptRule } from "./core/intercept.js";
 import { preflight } from "./core/diagnostics.js";
@@ -609,6 +612,76 @@ export function createBrowsyServer(): McpServer {
         const session = await getSession(url, { targetId: args.targetId });
         const metrics = await getPerformanceMetrics(session);
         return { ok: true, metrics };
+      }),
+  );
+
+  server.registerTool(
+    "browsy_emulate_device",
+    {
+      description:
+        "Emulate a mobile device: set device metrics (width/height/scale), user agent, and touch emulation.",
+      inputSchema: {
+        device: z
+          .object({
+            name: z.string().optional(),
+            width: z.number().positive(),
+            height: z.number().positive(),
+            deviceScaleFactor: z.number().positive().optional(),
+            mobile: z.boolean().optional(),
+            userAgent: z.string().optional(),
+          })
+          .describe("Device profile or custom device metrics."),
+        ...addressSchema,
+      },
+    },
+    async (args) =>
+      run(async () => {
+        const url = args.browserUrl ?? DEFAULT_BROWSER_URL;
+        const session = await getSession(url, { targetId: args.targetId });
+        await emulateDevice(session, args.device);
+        return { ok: true, device: args.device };
+      }),
+  );
+
+  server.registerTool(
+    "browsy_set_geolocation",
+    {
+      description:
+        "Override the geolocation reported to the page (latitude, longitude, accuracy in meters).",
+      inputSchema: {
+        latitude: z.number().describe("Latitude in degrees."),
+        longitude: z.number().describe("Longitude in degrees."),
+        accuracy: z.number().optional().default(10).describe("Accuracy in meters."),
+        ...addressSchema,
+      },
+    },
+    async (args) =>
+      run(async () => {
+        const url = args.browserUrl ?? DEFAULT_BROWSER_URL;
+        const session = await getSession(url, { targetId: args.targetId });
+        await setGeolocation(session, args.latitude, args.longitude, args.accuracy);
+        return { ok: true, latitude: args.latitude, longitude: args.longitude, accuracy: args.accuracy };
+      }),
+  );
+
+  server.registerTool(
+    "browsy_set_device_orientation",
+    {
+      description:
+        "Override the device orientation reported to the page (alpha/beta/gamma in degrees).",
+      inputSchema: {
+        alpha: z.number().describe("Alpha rotation (degrees)."),
+        beta: z.number().describe("Beta tilt (degrees)."),
+        gamma: z.number().describe("Gamma tilt (degrees)."),
+        ...addressSchema,
+      },
+    },
+    async (args) =>
+      run(async () => {
+        const url = args.browserUrl ?? DEFAULT_BROWSER_URL;
+        const session = await getSession(url, { targetId: args.targetId });
+        await setDeviceOrientation(session, args.alpha, args.beta, args.gamma);
+        return { ok: true, alpha: args.alpha, beta: args.beta, gamma: args.gamma };
       }),
   );
 
