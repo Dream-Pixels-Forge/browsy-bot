@@ -7,6 +7,12 @@
     <a href="https://dream-pixels-forge.github.io/browsy-bot/"><strong>Live site</strong></a> ·
     <a href="https://github.com/Dream-Pixels-Forge/browsy-bot">GitHub</a>
   </p>
+  <p>
+    <a href="https://www.npmjs.com/package/browsy-bot"><img src="https://img.shields.io/npm/v/browsy-bot?color=ff6a2b" alt="npm version"></a>
+    <a href="https://github.com/Dream-Pixels-Forge/browsy-bot/actions/workflows/ci.yml"><img src="https://img.shields.io/github/actions/workflow/status/Dream-Pixels-Forge/browsy-bot/ci.yml?label=CI&color=ff6a2b" alt="CI status"></a>
+    <a href="https://github.com/Dream-Pixels-Forge/browsy-bot/blob/main/LICENSE"><img src="https://img.shields.io/badge/license-MIT-ff6a2b" alt="License"></a>
+    <a href="https://www.npmjs.com/package/browsy-bot"><img src="https://img.shields.io/npm/dw/browsy-bot?color=ff6a2b" alt="Downloads"></a>
+  </p>
   <hr />
 </div>
 

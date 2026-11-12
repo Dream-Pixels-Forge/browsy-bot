@@ -422,7 +422,7 @@
         <div class="hero-mark reveal" aria-hidden="true">
           <svg viewBox="0 0 24 24"><path d="M4 6l8-4 8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10z"/><path d="M9 12l2.5 2.5L15.5 9"/></svg>
         </div>
-        <div class="eyebrow-hero reveal"><span class="dot"></span> v0.2.0 · Zero-middleware CDP</div>
+        <div class="eyebrow-hero reveal"><span class="dot"></span> v1.0.0 · Zero-middleware CDP browser automation</div>
         <h1 class="reveal">Browser automation,<br /><span class="accent">zero middleware.</span></h1>
         <p class="sub reveal">
           <strong>browsy-bot</strong> talks directly to the Chrome DevTools Protocol — no Puppeteer, no Playwright, no ChromeDriver. One CDP core, three adapters: an <strong>OpenCode plugin</strong>, a universal <strong>MCP server</strong>, and a <strong>CLI</strong>. It even remembers selectors and flows across sessions.
@@ -462,8 +462,8 @@
           <div class="feature delay-1"><div class="icon"><svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z"/><path d="M4 9h16M9 4v16"/></svg></div><h3>Zero middleware</h3><p>No ChromeDriver, Puppeteer, or Playwright. A direct CDP WebSocket — minimal latency, full protocol fidelity, deterministic lifecycle.</p></div>
           <div class="feature delay-2"><div class="icon"><svg viewBox="0 0 24 24"><path d="M12 2v4M12 18v4M2 12h4M18 12h4"/><circle cx="12" cy="12" r="4"/></svg></div><h3>Zero hidden state</h3><p>Addressed explicitly per call. Sessions cache when you want them, tear down when you don't — you always know what's connected.</p></div>
           <div class="feature delay-3"><div class="icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="4"/><path d="M12 3v2M12 19v2M3 12h2M19 12h2"/></svg></div><h3>Granular targeting</h3><p>Operate on specific tabs and windows via <code>targetId</code>, or auto-discover the first page target. Full multi-tab control.</p></div>
-          <div class="feature delay-4"><div class="icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M7 13h6M7 17h10"/></svg></div><h3>Protocol-complete</h3><p>Domain wrappers for Page, Runtime, Performance, Accessibility, and Target — the CDP surface you actually need, typed.</p></div>
-          <div class="feature delay-5"><div class="icon"><svg viewBox="0 0 24 24"><path d="M4 8V6a2 2 0 012-2h12a2 2 0 012 2v2"/><path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/><path d="M12 6v12M8 10v4M16 10v4"/></svg></div><h3>Multi-tool</h3><p>One core, three adapters: an OpenCode plugin, a universal MCP server, and a CLI — all built on the same typed CDP client.</p></div>
+          <div class="feature delay-4"><div class="icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M7 13h6M7 17h10"/></svg></div><h3>Protocol-complete</h3><p>Domain wrappers for Page, Runtime, Performance, Accessibility, Target, Network, Emulation — the CDP surface you actually need, typed.</p></div>
+          <div class="feature delay-5"><div class="icon"><svg viewBox="0 0 24 24"><path d="M4 8V6a2 2 0 012-2h12a2 2 0 012 2v2"/><path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/><path d="M12 6v12M8 10v4M16 10v4"/></svg></div><h3>Multi-tool</h3><p>One core, three adapters: OpenCode plugin, universal MCP server, CLI — 25+ `browsy_*` tools spanning dialogs, uploads, downloads, a11y, visual regression, stealth, record/replay, cross-tab, performance, mobile emulation, DOM diff, cookies, storage.</p></div>
           <div class="feature delay-6"><div class="icon"><svg viewBox="0 0 24 24"><circle cx="12" cy="5" r="2"/><circle cx="5" cy="19" r="2"/><circle cx="19" cy="19" r="2"/><path d="M12 7v4M8.5 16.5L7 18M15.5 16.5L17 18M5 17l2-3M19 17l-2-3"/></svg></div><h3>Learns across sessions</h3><p>Optional <a href="https://github.com/Dream-Pixels-Forge/memorius" target="_blank" rel="noopener">memorius</a> integration stores selectors, quirks, and navigation flows — and surfaces them before the next task.</p></div>
         </div>
       </div>
@@ -476,8 +476,8 @@
         <p class="lead reveal">The same CDP client powers an OpenCode plugin, a universal MCP server, and a CLI. Pick your surface — the core is identical.</p>
         <div class="grid grid-3">
           <div class="adapter delay-1"><span class="tag">8 tools</span><div class="icon"><svg viewBox="0 0 24 24"><path d="M12 3l8 4v6c0 5-3.5 8.5-8 10-4.5-1.5-8-5-8-10V7z"/></svg></div><h3>OpenCode plugin</h3><p>Drop it into your OpenCode config and agents get a first-class <code>browsy_*</code> toolset, plus an optional bundled agent skill.</p><ul><li><code>navigate</code> · <code>screenshot</code> · <code>evaluate</code></li><li><code>recall</code> · <code>wait</code> · <code>console</code></li><li><code>network_log</code> · <code>list_tabs</code></li></ul></div>
-          <div class="adapter delay-2"><span class="tag">9 tools</span><div class="icon"><svg viewBox="0 0 24 24"><path d="M4 8V6a2 2 0 012-2h12a2 2 0 012 2v2"/><path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/><path d="M12 6v12M8 10v4M16 10v4"/></svg></div><h3>Universal MCP server</h3><p>Speak MCP over stdio. Works with Claude Code, Cursor, Gemini CLI, Cline, Continue, Zed, Hermes — and OpenCode's own MCP support.</p><ul><li>All 8 plugin tools, plus <code>new_tab</code></li><li>One config line in any MCP client</li><li>Node or Bun, out of the box</li></ul></div>
-          <div class="adapter delay-3"><span class="tag">full set</span><div class="icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M13 15h4"/></svg></div><h3>CLI</h3><p>Any agent with a terminal can shell out. Stable exit codes and a <code>--json</code> machine-readable contract for scripted use.</p><ul><li><code>navigate</code> · <code>screenshot</code> · <code>eval</code></li><li><code>extract</code> · <code>doctor</code> · <code>ensure-browser</code></li><li><code>tabs</code> · <code>console</code> · <code>network</code></li></ul></div>
+          <div class="adapter delay-2"><span class="tag">25+ tools</span><div class="icon"><svg viewBox="0 0 24 24"><path d="M4 8V6a2 2 0 012-2h12a2 2 0 012 2v2"/><path d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2"/><path d="M12 6v12M8 10v4M16 10v4"/></svg></div><h3>Universal MCP server</h3><p>Speak MCP over stdio. Works with Claude Code, Cursor, Gemini CLI, Cline, Continue, Zed, Hermes — and OpenCode's own MCP support.</p><ul><li>Dialogs · uploads · downloads · network idle</li><li>Accessibility · visual regression · stealth · record/replay</li><li>Cross-tab · retry · iframe · mobile emulation</li><li>DOM diff · cookies · storage · performance</li><li>One config line in any MCP client</li><li>Node or Bun, out of the box</li></ul></div>
+          <div class="adapter delay-3"><span class="tag">full set</span><div class="icon"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M13 15h4"/></svg></div><h3>CLI</h3><p>Any agent with a terminal can shell out. Stable exit codes and a <code>--json</code> machine-readable contract for scripted use.</p><ul><li><code>navigate</code> · <code>screenshot</code> · <code>eval</code></li><li><code>extract</code> · <code>doctor</code> · <code>ensure-browser</code></li><li><code>tabs</code> · <code>console</code> · <code>network</code></li><li><code>dialog</code> · <code>upload</code> · <code>download</code></li><li><code>a11y</code> · <code>visual-baseline</code> · <code>visual-compare</code></li><li><code>intercept</code> · <code>stealth</code> · <code>record</code> · <code>replay</code></li><li><code>track-tabs</code> · <code>switch-tab</code> · <code>retry</code></li><li><code>enter-frame</code> · <code>exit-frame</code> · <code>performance</code></li><li><code>emulate-device</code> · <code>set-geolocation</code> · <code>set-device-orientation</code></li><li><code>capture-dom</code> · <code>diff-dom</code> · <code>get-cookies</code></li><li><code>set-cookies</code> · <code>delete-cookies</code> · <code>get-storage</code></li></ul></div>
         </div>
       </div>
     </section>
@@ -487,7 +487,7 @@
       <div class="wrap">
         <div class="tk">
           <div class="tk-left">
-            <span class="eyebrow reveal">v0.2.0 toolkit</span>
+            <span class="eyebrow reveal">v1.0.0 toolkit</span>
             <h2 class="reveal">Primitives that remove the tedious parts.</h2>
             <p class="reveal">Beyond raw CDP, browsy-bot ships a small toolkit covering the jobs people actually automate. Follow the steps — each one is a real command.</p>
             <ul class="tk-nav" aria-label="Toolkit steps">
@@ -495,6 +495,10 @@
               <li data-for="s2" data-spy-step><span class="num">02</span> Pull data with extract</li>
               <li data-for="s3" data-spy-step><span class="num">03</span> Own the browser lifecycle</li>
               <li data-for="s4" data-spy-step><span class="num">04</span> Send real input events</li>
+              <li data-for="s5" data-spy-step><span class="num">05</span> Capture screenshots</li>
+              <li data-for="s6" data-spy-step><span class="num">06</span> Handle dialogs & uploads</li>
+              <li data-for="s7" data-spy-step><span class="num">07</span> Compare DOM baselines</li>
+              <li data-for="s8" data-spy-step><span class="num">08</span> Manage cookies & storage</li>
             </ul>
           </div>
           <div class="tk-right">
@@ -522,6 +526,31 @@ browsy stop-browser</code></pre>
               <p><code>click</code> and <code>fill</code> gain an opt-in <code>--trusted</code> flag that dispatches renderer-trusted CDP input events (<code>Input.dispatchMouseEvent</code> / <code>Input.insertText</code>) instead of JS-dispatched ones — so the page sees a real user event.</p>
               <pre><code>browsy click ".save" --trusted
 browsy fill "#email" "a@b.c" --trusted</code></pre>
+            </div>
+            <div class="tk-step" id="s5" data-step>
+              <div class="head"><svg viewBox="0 0 24 24"><path d="M2 12h20M12 2v20"/></svg><span class="k">capture-dom · diff-dom<small>Structural visual diff</small></span></div>
+              <p>Capture the page DOM as a snapshot, save it as a baseline, then diff later captures against it — catching added, removed, or changed elements without pixel-level noise.</p>
+              <pre><code>browsy capture-dom "homepage"
+browsy diff-dom "homepage"</code></pre>
+            </div>
+            <div class="tk-step" id="s6" data-step>
+              <div class="head"><svg viewBox="0 0 24 24"><path d="M2 12h20M12 2v20"/></svg><span class="k">get/set-cookies<small>Authenticated sessions</small></span></div>
+              <p>Get, set, and delete cookies over CDP — so you can log in once and carry auth state across captures for dashboard and checkout flows.</p>
+              <pre><code>browsy get-cookies
+browsy set-cookies '[{"name":"session","value":"abc123","domain":"example.com"}]'
+browsy delete-cookies "session" "example.com"</code></pre>
+            </div>
+            <div class="tk-step" id="s7" data-step>
+              <div class="head"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span class="k">get-storage<small>localStorage / sessionStorage</small></span></div>
+              <p>Read localStorage and sessionStorage for the page's current origin — inspect persisted state without JS evaluation hacks.</p>
+              <pre><code>browsy get-storage --origin https://example.com</code></pre>
+            </div>
+            <div class="tk-step" id="s8" data-step>
+              <div class="head"><svg viewBox="0 0 24 24"><path d="M9 19c-4.3 1.4-4.3-2.2-6-3m12 5v-3.5c0-1 .1-1.4-.5-2 2.8-.3 5.5-1.4 5.5-6a4.6 4.6 0 00-1.3-3.2 4.2 4.2 0 00-.1-3.2s-1.1-.3-3.7 1.4a13 13 0 00-6.8 0C6.7 2.8 5.6 3.1 5.6 3.1a4.2 4.2 0 00-.1 3.2A4.6 4.6 0 004.2 9.5c0 4.6 2.7 5.7 5.5 6-.6.6-.6 1.2-.5 2V21"/></svg><span class="k">browsy-bot v1.0.0<small>176 tests, fully typed</small></span></div>
+              <p>Screenshots auto-save to <code>dev-notes/browsy-captures/</code>, preflight health-checks catch issues before capture, and every feature is typed and unit-tested.</p>
+              <pre><code>browsy ensure-browser
+browsy screenshot --full
+browsy doctor --json</code></pre>
             </div>
           </div>
         </div>
