@@ -78,6 +78,10 @@ import {
   diffDomSnapshots,
   saveDomBaseline,
   compareDom,
+  getCookies,
+  setCookies,
+  deleteCookies,
+  getStorage,
 } from './core/actions.js';
 import { startMcpServer } from './mcp.js';
 import { extract } from './core/extract.js';
@@ -348,6 +352,45 @@ export async function runCommand(
         message: result.pass
           ? `DOM matches baseline ${name}`
           : `DOM differs from baseline ${name}: ${result.added.length + result.removed.length + result.changed.length} change${result.added.length + result.removed.length + result.changed.length === 1 ? '' : 's'}`,
+      };
+    }
+
+    case 'get-cookies': {
+      const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
+      const cookies = await getCookies(session);
+      return {
+        ok: true,
+        data: { cookies },
+        message: `${cookies.length} cookie${cookies.length === 1 ? '' : 's'} found`,
+      };
+    }
+
+    case 'set-cookies': {
+      const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
+      const cookies: Array<{ name: string; value: string; domain: string; path?: string; secure?: boolean; httpOnly?: boolean }> =
+        Array.isArray(args.cookies) ? args.cookies : [];
+      if (cookies.length === 0) throw new CliUsageError('set-cookies requires --cookies JSON array');
+      await setCookies(session, cookies);
+      return { ok: true, data: { cookies }, message: `Set ${cookies.length} cookie${cookies.length === 1 ? '' : 's'}` };
+    }
+
+    case 'delete-cookies': {
+      const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
+      const name = String(args.name ?? '');
+      const domain = String(args.domain ?? '');
+      if (!name || !domain) throw new CliUsageError('delete-cookies requires --name and --domain');
+      await deleteCookies(session, { name, domain });
+      return { ok: true, data: { name, domain }, message: `Deleted cookie ${name} on ${domain}` };
+    }
+
+    case 'get-storage': {
+      const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
+      const origin = String(args.origin ?? '');
+      const storage = await getStorage(session, origin || undefined);
+      return {
+        ok: true,
+        data: storage,
+        message: `${Object.keys(storage.localStorage).length + Object.keys(storage.sessionStorage).length} storage items on ${storage.origin || 'page origin'}`,
       };
     }
 
@@ -713,6 +756,18 @@ function buildProgram(): Command {
   program.command('diff-dom <name>')
     .description('Capture the current DOM and diff it against a saved baseline')
     .action(act('diff-dom', ['name']));
+  program.command('get-cookies')
+    .description('Get all cookies visible to the page')
+    .action(act('get-cookies'));
+  program.command('set-cookies <cookiesJson>')
+    .description('Set cookies on the page (JSON array of {name,value,domain,path})')
+    .action(act('set-cookies', ['cookiesJson']));
+  program.command('delete-cookies <name> <domain>')
+    .description('Delete cookies matching name + domain')
+    .action(act('delete-cookies', ['name', 'domain']));
+  program.command('get-storage [origin]')
+    .description('Read localStorage + sessionStorage for the page origin')
+    .action(act('get-storage', ['origin']));
   program.command('emulate-device <deviceJson>')
     .description('Emulate a mobile device (device metrics, user agent, touch)')
     .action(act('emulate-device', ['deviceJson']));

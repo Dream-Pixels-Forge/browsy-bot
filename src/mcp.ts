@@ -48,6 +48,10 @@ import {
   diffDomSnapshots,
   saveDomBaseline,
   compareDom,
+  getCookies,
+  setCookies,
+  deleteCookies,
+  getStorage,
 } from "./core/actions.js";
 import type { InterceptRule } from "./core/intercept.js";
 import { preflight } from "./core/diagnostics.js";
@@ -661,6 +665,108 @@ export function createBrowsyServer(): McpServer {
             ? `DOM matches baseline ${args.name}`
             : `DOM differs from baseline ${args.name}: ${result.added.length + result.removed.length + result.changed.length} change`,
         };
+      }),
+  );
+
+  server.registerTool(
+    "browsy_get_cookies",
+    {
+      description:
+        "Get all cookies visible to the page (HTTP-only cookies included via CDP).",
+      inputSchema: { ...addressSchema },
+    },
+    async (args) =>
+      run(async () => {
+        const url = args.browserUrl ?? DEFAULT_BROWSER_URL;
+        const session = await getSession(url, { targetId: args.targetId });
+        const cookies = await getCookies(session);
+        return {
+          ok: true,
+          cookies,
+          count: cookies.length,
+          message: `${cookies.length} cookie${cookies.length === 1 ? '' : 's'} found`,
+        };
+      }),
+  );
+
+  server.registerTool(
+    "browsy_set_cookies",
+    {
+      description:
+        "Set cookies on the page. Cookies are domain-scoped; pass matching domain/path.",
+      inputSchema: {
+        cookies: z
+          .array(
+            z.object({
+              name: z.string(),
+              value: z.string(),
+              domain: z.string(),
+              path: z.string().optional(),
+              secure: z.boolean().optional(),
+              httpOnly: z.boolean().optional(),
+            }),
+          )
+          .describe("Cookies to set."),
+        ...addressSchema,
+      },
+    },
+    async (args) =>
+      run(async () => {
+        const url = args.browserUrl ?? DEFAULT_BROWSER_URL;
+        const session = await getSession(url, { targetId: args.targetId });
+        await setCookies(session, args.cookies);
+        return {
+          ok: true,
+          set: args.cookies.length,
+          message: `Set ${args.cookies.length} cookie${args.cookies.length === 1 ? '' : 's'}`,
+        };
+      }),
+  );
+
+  server.registerTool(
+    "browsy_delete_cookies",
+    {
+      description:
+        "Delete cookies matching name + domain (+ optional path).",
+      inputSchema: {
+        name: z.string().describe("Cookie name."),
+        domain: z.string().describe("Cookie domain."),
+        path: z.string().optional().describe("Cookie path."),
+        ...addressSchema,
+      },
+    },
+    async (args) =>
+      run(async () => {
+        const url = args.browserUrl ?? DEFAULT_BROWSER_URL;
+        const session = await getSession(url, { targetId: args.targetId });
+        await deleteCookies(session, {
+          name: args.name,
+          domain: args.domain,
+          path: args.path,
+        });
+        return { ok: true, name: args.name, domain: args.domain };
+      }),
+  );
+
+  server.registerTool(
+    "browsy_get_storage",
+    {
+      description:
+        "Read localStorage + sessionStorage for the page's current origin.",
+      inputSchema: {
+        origin: z
+          .string()
+          .optional()
+          .describe("Origin (e.g. https://example.com). Defaults to page origin."),
+        ...addressSchema,
+      },
+    },
+    async (args) =>
+      run(async () => {
+        const url = args.browserUrl ?? DEFAULT_BROWSER_URL;
+        const session = await getSession(url, { targetId: args.targetId });
+        const storage = await getStorage(session, args.origin);
+        return { ok: true, ...storage };
       }),
   );
 

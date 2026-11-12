@@ -376,6 +376,8 @@ export { emulateDevice, setGeolocation, setDeviceOrientation, DEVICE_PROFILES } 
 export type { DeviceProfile } from './mobile.js';
 export { captureDomSnapshot, diffDomSnapshots, saveDomBaseline, compareDom } from './dom-diff.js';
 export type { DomSnapshot, DiffResult } from './dom-diff.js';
+export { getCookies, setCookies, deleteCookies } from './cookies.js';
+export { getStorage } from './storage.js';
 
 // --- tab management (session-level, uses browser connection) ----------------
 

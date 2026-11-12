@@ -373,6 +373,45 @@ export interface NetworkEntry {
   resourceType?: string;
 }
 
+// Network Domain (cookie management)
+export namespace Network {
+  export interface Cookie {
+    name: string;
+    value: string;
+    domain: string;
+    path?: string;
+    secure?: boolean;
+    httpOnly?: boolean;
+    sameSite?: 'Strict' | 'Lax' | 'None';
+    session?: boolean;
+    expires?: number;
+    size?: number;
+    priority?: 'Low' | 'Medium' | 'High';
+  }
+
+  export interface GetCookiesParams {
+    urls?: string[];
+  }
+
+  export interface GetCookiesResult {
+    cookies: Cookie[];
+  }
+
+  export interface SetCookiesParams {
+    cookies: Cookie[];
+  }
+
+  export interface SetCookiesResult {}
+
+  export interface DeleteCookiesParams {
+    name: string;
+    domain: string;
+    path?: string;
+  }
+
+  export interface DeleteCookiesResult {}
+}
+
 // Generic CDP Domain Handler
 export interface CDPDomain {
   handleMessage(message: CDPMessage): void;

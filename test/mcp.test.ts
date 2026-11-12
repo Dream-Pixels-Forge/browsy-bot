@@ -83,6 +83,16 @@ vi.mock("../src/core/actions.js", async (importOriginal: any) => {
       changed: [],
       baselinePath: `/tmp/browsy-mcp-test/dev-notes/browsy-captures/dom-baselines/${name}.json`,
     })),
+    getCookies: vi.fn(async () => [
+      { name: "session", value: "abc123", domain: "example.com", path: "/" },
+    ]),
+    setCookies: vi.fn(async () => {}),
+    deleteCookies: vi.fn(async () => {}),
+    getStorage: vi.fn(async () => ({
+      origin: "https://example.com",
+      localStorage: { theme: "dark" },
+      sessionStorage: { tab: "dashboard" },
+    })),
   };
 });
 
@@ -136,6 +146,10 @@ const EXPECTED_TOOLS = [
   "browsy_set_device_orientation",
   "browsy_capture_dom",
   "browsy_diff_dom",
+  "browsy_get_cookies",
+  "browsy_set_cookies",
+  "browsy_delete_cookies",
+  "browsy_get_storage",
   "browsy_dialog",
   "browsy_upload",
   "browsy_download",
@@ -694,6 +708,99 @@ describe("browsy MCP server (in-process)", () => {
     const text = (res.content as Array<{ text?: string }>)[0]?.text ?? "";
     expect(res.isError).toBeFalsy();
     expect(text).toContain("DOM matches baseline homepage");
+
+    await client.close();
+    await serverTransport.close();
+  }, 15000);
+
+  it("browsy_get_cookies returns cookies", async () => {
+    const server = createBrowsyServer();
+    const client = new Client({ name: "test-client", version: "0.0.0" });
+    const [serverTransport, clientTransport] =
+      InMemoryTransport.createLinkedPair();
+    await Promise.all([
+      server.connect(serverTransport),
+      client.connect(clientTransport),
+    ]);
+
+    const res = await client.callTool({
+      name: "browsy_get_cookies",
+      arguments: {},
+    });
+    const text = (res.content as Array<{ text?: string }>)[0]?.text ?? "";
+    expect(res.isError).toBeFalsy();
+    expect(text).toContain("session");
+    expect(text).toContain("abc123");
+
+    await client.close();
+    await serverTransport.close();
+  }, 15000);
+
+  it("browsy_set_cookies sets cookies", async () => {
+    const server = createBrowsyServer();
+    const client = new Client({ name: "test-client", version: "0.0.0" });
+    const [serverTransport, clientTransport] =
+      InMemoryTransport.createLinkedPair();
+    await Promise.all([
+      server.connect(serverTransport),
+      client.connect(clientTransport),
+    ]);
+
+    const res = await client.callTool({
+      name: "browsy_set_cookies",
+      arguments: {
+        cookies: [{ name: "token", value: "xyz", domain: "example.com", path: "/" }],
+      },
+    });
+    const text = (res.content as Array<{ text?: string }>)[0]?.text ?? "";
+    expect(res.isError).toBeFalsy();
+    expect(text).toContain("Set 1 cookie");
+
+    await client.close();
+    await serverTransport.close();
+  }, 15000);
+
+  it("browsy_delete_cookies deletes a cookie", async () => {
+    const server = createBrowsyServer();
+    const client = new Client({ name: "test-client", version: "0.0.0" });
+    const [serverTransport, clientTransport] =
+      InMemoryTransport.createLinkedPair();
+    await Promise.all([
+      server.connect(serverTransport),
+      client.connect(clientTransport),
+    ]);
+
+    const res = await client.callTool({
+      name: "browsy_delete_cookies",
+      arguments: { name: "session", domain: "example.com" },
+    });
+    const text = (res.content as Array<{ text?: string }>)[0]?.text ?? "";
+    expect(res.isError).toBeFalsy();
+    expect(text).toContain("session");
+    expect(text).toContain("example.com");
+
+    await client.close();
+    await serverTransport.close();
+  }, 15000);
+
+  it("browsy_get_storage returns storage", async () => {
+    const server = createBrowsyServer();
+    const client = new Client({ name: "test-client", version: "0.0.0" });
+    const [serverTransport, clientTransport] =
+      InMemoryTransport.createLinkedPair();
+    await Promise.all([
+      server.connect(serverTransport),
+      client.connect(clientTransport),
+    ]);
+
+    const res = await client.callTool({
+      name: "browsy_get_storage",
+      arguments: { origin: "https://example.com" },
+    });
+    const text = (res.content as Array<{ text?: string }>)[0]?.text ?? "";
+    expect(res.isError).toBeFalsy();
+    expect(text).toContain("example.com");
+    expect(text).toContain("theme");
 
     await client.close();
     await serverTransport.close();
