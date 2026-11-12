@@ -374,6 +374,8 @@ export { getPerformanceMetrics } from './performance.js';
 export { checkPerformanceBudget } from './perf-budget.js';
 export { emulateDevice, setGeolocation, setDeviceOrientation, DEVICE_PROFILES } from './mobile.js';
 export type { DeviceProfile } from './mobile.js';
+export { captureDomSnapshot, diffDomSnapshots, saveDomBaseline, compareDom } from './dom-diff.js';
+export type { DomSnapshot, DiffResult } from './dom-diff.js';
 
 // --- tab management (session-level, uses browser connection) ----------------
 

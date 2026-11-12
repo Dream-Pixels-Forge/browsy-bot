@@ -71,6 +71,18 @@ vi.mock("../src/core/actions.js", async (importOriginal: any) => {
       FirstContentfulPaint: 1200,
       LargestContentfulPaint: 2400,
     })),
+    captureDomSnapshot: vi.fn(async () => ({
+      tag: "html",
+      children: [{ tag: "body", id: "main", children: [] }],
+    })),
+    saveDomBaseline: vi.fn(async (_session: any, name: string) => `/tmp/browsy-mcp-test/dev-notes/browsy-captures/dom-baselines/${name}.json`),
+    compareDom: vi.fn(async (_session: any, name: string) => ({
+      pass: true,
+      added: [],
+      removed: [],
+      changed: [],
+      baselinePath: `/tmp/browsy-mcp-test/dev-notes/browsy-captures/dom-baselines/${name}.json`,
+    })),
   };
 });
 
@@ -122,6 +134,8 @@ const EXPECTED_TOOLS = [
   "browsy_emulate_device",
   "browsy_set_geolocation",
   "browsy_set_device_orientation",
+  "browsy_capture_dom",
+  "browsy_diff_dom",
   "browsy_dialog",
   "browsy_upload",
   "browsy_download",
@@ -635,6 +649,51 @@ describe("browsy MCP server (in-process)", () => {
     expect(res.isError).toBeFalsy();
     expect(text).toContain("0");
     expect(text).toContain("45");
+
+    await client.close();
+    await serverTransport.close();
+  }, 15000);
+
+  it("browsy_capture_dom saves a DOM baseline", async () => {
+    const server = createBrowsyServer();
+    const client = new Client({ name: "test-client", version: "0.0.0" });
+    const [serverTransport, clientTransport] =
+      InMemoryTransport.createLinkedPair();
+    await Promise.all([
+      server.connect(serverTransport),
+      client.connect(clientTransport),
+    ]);
+
+    const res = await client.callTool({
+      name: "browsy_capture_dom",
+      arguments: { name: "homepage" },
+    });
+    const text = (res.content as Array<{ text?: string }>)[0]?.text ?? "";
+    expect(res.isError).toBeFalsy();
+    expect(text).toContain("dom-baselines");
+    expect(text).toContain("homepage");
+
+    await client.close();
+    await serverTransport.close();
+  }, 15000);
+
+  it("browsy_diff_dom compares against a baseline", async () => {
+    const server = createBrowsyServer();
+    const client = new Client({ name: "test-client", version: "0.0.0" });
+    const [serverTransport, clientTransport] =
+      InMemoryTransport.createLinkedPair();
+    await Promise.all([
+      server.connect(serverTransport),
+      client.connect(clientTransport),
+    ]);
+
+    const res = await client.callTool({
+      name: "browsy_diff_dom",
+      arguments: { name: "homepage" },
+    });
+    const text = (res.content as Array<{ text?: string }>)[0]?.text ?? "";
+    expect(res.isError).toBeFalsy();
+    expect(text).toContain("DOM matches baseline homepage");
 
     await client.close();
     await serverTransport.close();

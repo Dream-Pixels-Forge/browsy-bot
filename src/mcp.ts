@@ -44,6 +44,10 @@ import {
   emulateDevice,
   setGeolocation,
   setDeviceOrientation,
+  captureDomSnapshot,
+  diffDomSnapshots,
+  saveDomBaseline,
+  compareDom,
 } from "./core/actions.js";
 import type { InterceptRule } from "./core/intercept.js";
 import { preflight } from "./core/diagnostics.js";
@@ -612,6 +616,51 @@ export function createBrowsyServer(): McpServer {
         const session = await getSession(url, { targetId: args.targetId });
         const metrics = await getPerformanceMetrics(session);
         return { ok: true, metrics };
+      }),
+  );
+
+  server.registerTool(
+    "browsy_capture_dom",
+    {
+      description:
+        "Capture the current page DOM as a serializable snapshot and save it as a baseline under dev-notes/browsy-captures/dom-baselines/.",
+      inputSchema: {
+        name: z.string().describe("Baseline name (used as the file name)."),
+        ...addressSchema,
+      },
+    },
+    async (args) =>
+      run(async () => {
+        const url = args.browserUrl ?? DEFAULT_BROWSER_URL;
+        const session = await getSession(url, { targetId: args.targetId });
+        const filePath = await saveDomBaseline(session, args.name);
+        return { ok: true, path: filePath, name: args.name };
+      }),
+  );
+
+  server.registerTool(
+    "browsy_diff_dom",
+    {
+      description:
+        "Capture the current DOM and pixel-compare it against a saved DOM baseline. Returns pass/fail plus a diff report.",
+      inputSchema: {
+        name: z.string().describe("Baseline name to diff against."),
+        ...addressSchema,
+      },
+    },
+    async (args) =>
+      run(async () => {
+        const url = args.browserUrl ?? DEFAULT_BROWSER_URL;
+        const session = await getSession(url, { targetId: args.targetId });
+        const result = await compareDom(session, args.name);
+        return {
+          ok: result.pass,
+          ...result,
+          name: args.name,
+          message: result.pass
+            ? `DOM matches baseline ${args.name}`
+            : `DOM differs from baseline ${args.name}: ${result.added.length + result.removed.length + result.changed.length} change`,
+        };
       }),
   );
 

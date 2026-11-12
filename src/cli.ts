@@ -74,6 +74,10 @@ import {
   emulateDevice,
   setGeolocation,
   setDeviceOrientation,
+  captureDomSnapshot,
+  diffDomSnapshots,
+  saveDomBaseline,
+  compareDom,
 } from './core/actions.js';
 import { startMcpServer } from './mcp.js';
 import { extract } from './core/extract.js';
@@ -323,6 +327,28 @@ export async function runCommand(
       const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
       const metrics = await getPerformanceMetrics(session);
       return { ok: true, data: { metrics }, message: `${Object.keys(metrics).length} performance metric${Object.keys(metrics).length === 1 ? '' : 's'} captured` };
+    }
+
+    case 'capture-dom': {
+      const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
+      const name = String(args.name ?? '');
+      if (!name) throw new CliUsageError('capture-dom requires a name');
+      const filePath = await saveDomBaseline(session, name);
+      return { ok: true, data: { path: filePath, name }, message: `DOM baseline saved to ${filePath}` };
+    }
+
+    case 'diff-dom': {
+      const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
+      const name = String(args.name ?? '');
+      if (!name) throw new CliUsageError('diff-dom requires a name');
+      const result = await compareDom(session, name);
+      return {
+        ok: result.pass,
+        data: result,
+        message: result.pass
+          ? `DOM matches baseline ${name}`
+          : `DOM differs from baseline ${name}: ${result.added.length + result.removed.length + result.changed.length} change${result.added.length + result.removed.length + result.changed.length === 1 ? '' : 's'}`,
+      };
     }
 
     case 'emulate-device': {
@@ -681,6 +707,12 @@ function buildProgram(): Command {
   program.command('performance')
     .description('Capture Core Web Vitals and navigation timing metrics')
     .action(act('performance'));
+  program.command('capture-dom <name>')
+    .description('Capture the current page DOM and save it as a baseline')
+    .action(act('capture-dom', ['name']));
+  program.command('diff-dom <name>')
+    .description('Capture the current DOM and diff it against a saved baseline')
+    .action(act('diff-dom', ['name']));
   program.command('emulate-device <deviceJson>')
     .description('Emulate a mobile device (device metrics, user agent, touch)')
     .action(act('emulate-device', ['deviceJson']));
