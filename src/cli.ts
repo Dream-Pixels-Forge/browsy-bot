@@ -69,6 +69,8 @@ import {
   retryableAction,
   enterFrame,
   exitFrame,
+  getPerformanceMetrics,
+  checkPerformanceBudget,
 } from './core/actions.js';
 import { startMcpServer } from './mcp.js';
 import { extract } from './core/extract.js';
@@ -312,6 +314,12 @@ export async function runCommand(
         data: { maxAttempts, baseDelayMs, captureOnRetry },
         message: `Retry configured: ${maxAttempts} attempts, ${baseDelayMs}ms base delay`,
       };
+    }
+
+    case 'performance': {
+      const session = await getSession(ctx.browserUrl, { targetId: ctx.targetId });
+      const metrics = await getPerformanceMetrics(session);
+      return { ok: true, data: { metrics }, message: `${Object.keys(metrics).length} performance metric${Object.keys(metrics).length === 1 ? '' : 's'} captured` };
     }
 
     case 'dialog': {
@@ -632,6 +640,9 @@ function buildProgram(): Command {
     .option('--base-delay-ms <n>', 'Base delay in ms', (v) => Number(v))
     .option('--capture-on-retry', 'Capture screenshot between attempts', false)
     .action(act('retry'));
+  program.command('performance')
+    .description('Capture Core Web Vitals and navigation timing metrics')
+    .action(act('performance'));
   program.command('dialog [action]')
     .description('Accept, dismiss, or read the most recent JavaScript dialog')
     .option('--prompt <text>', 'Text to enter for prompt dialogs')

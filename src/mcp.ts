@@ -39,6 +39,8 @@ import {
   retryableAction,
   enterFrame,
   exitFrame,
+  getPerformanceMetrics,
+  checkPerformanceBudget,
 } from "./core/actions.js";
 import type { InterceptRule } from "./core/intercept.js";
 import { preflight } from "./core/diagnostics.js";
@@ -591,6 +593,22 @@ export function createBrowsyServer(): McpServer {
         const session = await getSession(url, { targetId: args.targetId });
         await exitFrame(session);
         return { ok: true };
+      }),
+  );
+
+  server.registerTool(
+    "browsy_performance",
+    {
+      description:
+        "Capture Core Web Vitals and navigation timing metrics from the page.",
+      inputSchema: { ...addressSchema },
+    },
+    async (args) =>
+      run(async () => {
+        const url = args.browserUrl ?? DEFAULT_BROWSER_URL;
+        const session = await getSession(url, { targetId: args.targetId });
+        const metrics = await getPerformanceMetrics(session);
+        return { ok: true, metrics };
       }),
   );
 

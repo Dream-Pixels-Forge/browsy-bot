@@ -67,6 +67,10 @@ vi.mock("../src/core/actions.js", async (importOriginal: any) => {
     fullPageScreenshot: vi.fn(async () => "aW1uZw=="),
     listTabs: vi.fn(async () => [{ id: "t1", url: "https://example.com", title: "Example", type: "page" }]),
     setFileInput: vi.fn(async () => {}),
+    getPerformanceMetrics: vi.fn(async () => ({
+      FirstContentfulPaint: 1200,
+      LargestContentfulPaint: 2400,
+    })),
   };
 });
 
@@ -114,6 +118,7 @@ const EXPECTED_TOOLS = [
   "browsy_retry",
   "browsy_enter_frame",
   "browsy_exit_frame",
+  "browsy_performance",
   "browsy_dialog",
   "browsy_upload",
   "browsy_download",
@@ -528,6 +533,28 @@ describe("browsy MCP server (in-process)", () => {
     const text = (res.content as Array<{ text?: string }>)[0]?.text ?? "";
     expect(res.isError).toBeFalsy();
     expect(text).toContain("true");
+
+    await client.close();
+    await serverTransport.close();
+  }, 15000);
+
+  it("browsy_performance returns metrics", async () => {
+    const server = createBrowsyServer();
+    const client = new Client({ name: "test-client", version: "0.0.0" });
+    const [serverTransport, clientTransport] =
+      InMemoryTransport.createLinkedPair();
+    await Promise.all([
+      server.connect(serverTransport),
+      client.connect(clientTransport),
+    ]);
+
+    const res = await client.callTool({
+      name: "browsy_performance",
+      arguments: {},
+    });
+    const text = (res.content as Array<{ text?: string }>)[0]?.text ?? "";
+    expect(res.isError).toBeFalsy();
+    expect(text).toContain("FirstContentfulPaint");
 
     await client.close();
     await serverTransport.close();
